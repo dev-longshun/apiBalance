@@ -43,11 +43,10 @@ func main() {
 
 	srv := server.New(cfg, db)
 	chk := checker.New()
-	startTime := time.Now()
 
 	siteHandler := handler.NewSiteHandler(srv.Sites, srv.Thresholds, chk)
 	checkHandler := handler.NewCheckHandler(srv.Sites, srv.Thresholds, chk)
-	settingHandler := handler.NewSettingHandler(srv.Settings, startTime, srv.Sites)
+	settingHandler := handler.NewSettingHandler(srv.Settings, srv.Sites)
 
 	// seed config file settings into DB (only if DB has no value yet)
 	seedSettings(srv.Settings, cfg)
@@ -58,7 +57,7 @@ func main() {
 		api.PUT("/sites/:id", siteHandler.Update)
 		api.DELETE("/sites/:id", siteHandler.Delete)
 
-		api.POST("/sites/:id/check", checkHandler.Check)
+		api.POST("/sites/:id/check", checkHandler.CheckSite)
 		api.POST("/check-all", checkHandler.CheckAll)
 
 		api.GET("/settings", settingHandler.GetSettings)
