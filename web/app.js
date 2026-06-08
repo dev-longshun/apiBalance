@@ -1,0 +1,253 @@
+const API = '/api';
+let sites = [];
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  if (res.status === 204) return null;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+function timeAgo(iso) {
+  if (!iso) return '-';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return Math.floor(diff) + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function statusDot(status) {
+  return `<span class="status-dot status-${status || 'unknown'}"></span>`;
+}
+
+function fmtBalance(balance, unit) {
+  if (unit === 'Token') {
+    if (balance >= 1e9) return (balance / 1e9).toFixed(1) + 'B';
+    if (balance >= 1e6) return (balance / 1e6).toFixed(1) + 'M';
+    if (balance >= 1e3) return (balance / 1e3).toFixed(1) + 'K';
+    return Math.floor(balance).toString();
+  }
+  const sym = unit === 'CNY' ? '¥' : '$';
+  return sym + balance.toFixed(2);
+}
+
+function renderSites() {
+  const list = document.getElementById('site-list');
+  let totalBal = 0, alerts = 0;
+
+  sites.forEach(s => {
+    if ((s.balance_unit === 'USD' || s.balance_unit === 'CNY' || s.balance_unit === '') && s.status !== 'error') {
+      totalBal += s.balance;
+    }
+    if (s.status === 'low') alerts++;
+  });
+
+  document.getElementById('stat-total').textContent = sites.length;
+  document.getElementById('stat-balance').textContent = '$' + totalBal.toFixed(2);
+  document.getElementById('stat-alerts').textContent = alerts;
+
+  if (sites.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">No sites yet. Click "Add Site" to start.</div>';
+    return;
+  }
+
+  list.innerHTML = sites.map(s => {
+    const threshStr = (s.thresholds || []).join(', ');
+    const lowBadge = s.status === 'low' ? '<span class="low-badge">⚠️</span>' : '';
+    const balText = s.status === 'error' ? '<span style="color:#ef4444">Error</span>' : fmtBalance(s.balance, s.balance_unit);
+    const errInfo = s.last_error ? `<br><span style="color:#ef4444;font-size:0.8rem">${s.last_error.substring(0, 60)}</span>` : '';
+
+    return `<div class="site-card">
+      <div class="site-info">
+        <div class="site-name">${statusDot(s.status)} ${esc(s.name)} ${lowBadge}</div>
+        <div class="site-meta">Last: ${timeAgo(s.last_check_at)} | Thresholds: $${threshStr}${errInfo}</div>
+      </div>
+      <div class="site-balance">${balText}</div>
+      <div class="site-actions">
+        <button class="btn btn-secondary btn-sm" onclick="checkSite('${s.id}')">Check</button>
+        <button class="btn btn-secondary btn-sm" onclick="showEditModal('${s.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSite('${s.id}','${esc(s.name)}')">Del</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function loadSites() {
+  try {
+    sites = await api('GET', '/sites') || [];
+    renderSites();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function loadSettings() {
+  try {
+    const s = await api('GET', '/settings');
+    document.getElementById('set-interval').value = s.interval_minutes;
+    document.getElementById('set-token').value = s.telegram_bot_token === '***configured***' ? '' : s.telegram_bot_token;
+    document.getElementById('set-chatid').value = s.telegram_chat_id;
+    if (s.telegram_bot_token === '***configured***') {
+      document.getElementById('set-token').placeholder = '***configured*** (leave empty to keep)';
+    }
+  } catch (_) {}
+}
+
+function showAddModal() {
+  document.getElementById('modal-title').textContent = 'Add Site';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-url').value = '';
+  document.getElementById('f-key').value = '';
+  document.getElementById('f-auth').value = 'bearer';
+  document.getElementById('f-thresholds').value = '10';
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function showEditModal(id) {
+  const s = sites.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('modal-title').textContent = 'Edit Site';
+  document.getElementById('edit-id').value = id;
+  document.getElementById('f-name').value = s.name;
+  document.getElementById('f-url').value = s.base_url;
+  document.getElementById('f-key').value = '';
+  document.getElementById('f-key').placeholder = s.api_key_masked || 'Leave empty to keep';
+  document.getElementById('f-auth').value = s.auth_type;
+  document.getElementById('f-thresholds').value = (s.thresholds || []).join(', ');
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+  document.getElementById('f-key').placeholder = 'sk-xxxxxxxx';
+}
+
+function parseThresholds(str) {
+  return str.split(',').map(s => parseFloat(s.trim())).filter(n => n > 0).sort((a, b) => b - a);
+}
+
+async function submitSite() {
+  const id = document.getElementById('edit-id').value;
+  const name = document.getElementById('f-name').value.trim();
+  const url = document.getElementById('f-url').value.trim();
+  const key = document.getElementById('f-key').value.trim();
+  const auth = document.getElementById('f-auth').value;
+  const thresholds = parseThresholds(document.getElementById('f-thresholds').value);
+
+  if (!name || !url) return toast('Name and URL required', 'error');
+
+  try {
+    if (id) {
+      const body = { name, base_url: url, auth_type: auth, thresholds };
+      if (key) body.api_key = key;
+      await api('PUT', '/sites/' + id, body);
+      toast('Site updated');
+    } else {
+      if (!key) return toast('API Key required', 'error');
+      await api('POST', '/sites', { name, base_url: url, api_key: key, auth_type: auth, thresholds });
+      toast('Site added');
+    }
+    closeModal();
+    await loadSites();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deleteSite(id, name) {
+  if (!confirm('Delete "' + name + '"?')) return;
+  try {
+    await api('DELETE', '/sites/' + id);
+    toast('Site deleted');
+    await loadSites();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function checkSite(id) {
+  try {
+    await api('POST', '/sites/' + id + '/check');
+    toast('Check complete');
+    await loadSites();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function refreshAll() {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing...';
+  try {
+    await api('POST', '/check-all');
+    toast('Refresh started');
+    setTimeout(async () => {
+      await loadSites();
+      btn.disabled = false;
+      btn.textContent = 'Refresh All';
+    }, 3000);
+  } catch (e) {
+    toast(e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Refresh All';
+  }
+}
+
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    loadSettings();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function saveSettings() {
+  const interval = parseInt(document.getElementById('set-interval').value);
+  const token = document.getElementById('set-token').value.trim();
+  const chatid = document.getElementById('set-chatid').value.trim();
+
+  const body = { interval_minutes: interval };
+  if (token) body.telegram_bot_token = token;
+  if (chatid) body.telegram_chat_id = chatid;
+
+  try {
+    await api('PUT', '/settings', body);
+    toast('Settings saved');
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function testTelegram() {
+  try {
+    await api('POST', '/telegram/test');
+    toast('Test message sent');
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+loadSites();
+setInterval(loadSites, 60000);

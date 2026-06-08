@@ -1,0 +1,13 @@
+server:
+  port: 8080
+
+database:
+  path: "./data/quota-sentinel.db"
+
+scheduler:
+  interval_minutes: 30
+  max_concurrency: 10
+
+telegram:
+  bot_token: ""
+  chat_id: ""

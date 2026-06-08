@@ -1,0 +1,10 @@
+quota-sentinel
+*.exe
+*.test
+*.out
+data/
+.env*
+config.yaml
+.DS_Store
+.idea/
+.vscode/
