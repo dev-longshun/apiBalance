@@ -3,8 +3,15 @@ let sites = [];
 
 async function api(method, path, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const token = localStorage.getItem('auth_token');
+  if (token) opts.headers['Authorization'] = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
+  if (res.status === 401 && path !== '/login') {
+    localStorage.removeItem('auth_token');
+    showLogin();
+    throw new Error('请先登录');
+  }
   if (res.status === 204) return null;
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '请求失败');
@@ -277,6 +284,44 @@ async function testTelegram() {
   } catch (e) {
     toast(e.message, 'error');
   }
+}
+
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('btn-logout').style.display = 'none';
+}
+
+function hideLogin() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('btn-logout').style.display = '';
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value;
+  const pwd = document.getElementById('login-password').value;
+  if (!pwd) return;
+  try {
+    const res = await fetch(API + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password: pwd }),
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || '登录失败', 'error'); return; }
+    localStorage.setItem('auth_token', data.token);
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    hideLogin();
+    loadSites();
+  } catch (e) {
+    toast('登录失败', 'error');
+  }
+}
+
+async function doLogout() {
+  try { await api('POST', '/logout'); } catch (_) {}
+  localStorage.removeItem('auth_token');
+  showLogin();
 }
 
 loadSites();

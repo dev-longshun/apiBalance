@@ -14,6 +14,8 @@ var defaults = map[string]string{
 	"interval_minutes":   "30",
 	"telegram_bot_token": "",
 	"telegram_chat_id":   "",
+	"admin_username":     "",
+	"admin_password":     "",
 }
 
 func (s *SettingStore) Get(key string) (string, error) {

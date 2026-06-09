@@ -42,6 +42,9 @@ header h1 { font-size: 1.5rem; font-weight: 700; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 .low-badge { color: #f59e0b; font-size: 0.85rem; margin-left: 4px; }
 .loading { opacity: 0.6; pointer-events: none; }
+.login-overlay { position: fixed; inset: 0; background: #f1f5f9; display: flex; align-items: center; justify-content: center; z-index: 300; }
+.login-box { background: #fff; border-radius: 16px; padding: 32px; width: 90%; max-width: 360px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); text-align: center; }
+.login-box h2 { font-size: 1.3rem; margin-bottom: 4px; }
 @media (max-width: 600px) {
   .stats { grid-template-columns: 1fr; }
   .site-card { flex-direction: column; align-items: flex-start; gap: 8px; }

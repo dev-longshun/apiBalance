@@ -48,11 +48,17 @@ func main() {
 	siteHandler := handler.NewSiteHandler(srv.Sites, srv.Thresholds, chk)
 	checkHandler := handler.NewCheckHandler(srv.Sites, srv.Thresholds, chk)
 	settingHandler := handler.NewSettingHandler(srv.Settings, srv.Sites)
+	authHandler := handler.NewAuthHandler(srv.Settings)
 
 	// seed config file settings into DB (only if DB has no value yet)
 	seedSettings(srv.Settings, cfg)
 
 	srv.RegisterAPI(func(api *gin.RouterGroup) {
+		api.POST("/login", authHandler.Login)
+		api.POST("/logout", authHandler.Logout)
+
+		api.Use(authHandler.Middleware())
+
 		api.GET("/sites", siteHandler.List)
 		api.POST("/sites", siteHandler.Create)
 		api.PUT("/sites/:id", siteHandler.Update)
@@ -151,5 +157,11 @@ func seedSettings(settings *store.SettingStore, cfg *config.Config) {
 		if v, _ := settings.Get("telegram_chat_id"); v == "" {
 			settings.Set("telegram_chat_id", cfg.Telegram.ChatID)
 		}
+	}
+	if cfg.Admin.Username != "" {
+		settings.Set("admin_username", cfg.Admin.Username)
+	}
+	if cfg.Admin.Password != "" {
+		settings.Set("admin_password", cfg.Admin.Password)
 	}
 }

@@ -12,6 +12,12 @@ type Config struct {
 	Database  DatabaseConfig  `yaml:"database"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	Telegram  TelegramConfig  `yaml:"telegram"`
+	Admin     AdminConfig     `yaml:"admin"`
+}
+
+type AdminConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 type ServerConfig struct {
@@ -75,5 +81,11 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("QS_CHAT_ID"); v != "" {
 		cfg.Telegram.ChatID = v
+	}
+	if v := os.Getenv("QS_ADMIN_USER"); v != "" {
+		cfg.Admin.Username = v
+	}
+	if v := os.Getenv("QS_ADMIN_PASSWORD"); v != "" {
+		cfg.Admin.Password = v
 	}
 }
