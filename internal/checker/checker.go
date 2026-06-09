@@ -29,10 +29,10 @@ type Checker struct {
 func New() *Checker {
 	return &Checker{
 		probers: []Prober{
-			&OpenAIProber{},
+			&NewAPIProber{},
 			&Sub2APIProber{},
 			&AuthMeProber{},
-			&NewAPIProber{},
+			&OpenAIProber{},
 		},
 	}
 }

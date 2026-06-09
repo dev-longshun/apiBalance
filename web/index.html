@@ -3,44 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quota Sentinel</title>
+  <title>额度监控</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container" id="app">
     <header>
-      <h1>Quota Sentinel</h1>
+      <h1>额度监控</h1>
       <div>
-        <button class="btn btn-secondary btn-sm" onclick="toggleSettings()">Settings</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleSettings()">设置</button>
       </div>
     </header>
 
     <div class="stats">
       <div class="stat-card">
         <div class="value" id="stat-total">0</div>
-        <div class="label">Site Count</div>
+        <div class="label">站点数量</div>
       </div>
       <div class="stat-card">
         <div class="value" id="stat-balance">$0</div>
-        <div class="label">Total Balance</div>
+        <div class="label">总余额</div>
       </div>
       <div class="stat-card">
         <div class="value" id="stat-alerts">0</div>
-        <div class="label">Alerts</div>
+        <div class="label">告警</div>
       </div>
     </div>
 
     <div class="toolbar">
-      <button class="btn btn-primary" onclick="showAddModal()">+ Add Site</button>
-      <button class="btn btn-secondary" id="btn-refresh" onclick="refreshAll()">Refresh All</button>
+      <button class="btn btn-primary" onclick="showAddModal()">+ 添加站点</button>
+      <button class="btn btn-secondary" id="btn-refresh" onclick="refreshAll()">刷新全部</button>
     </div>
 
     <div class="site-list" id="site-list"></div>
 
     <div class="settings-panel" id="settings-panel" style="display:none">
-      <h2>Settings</h2>
+      <h2>系统设置</h2>
       <div class="settings-row">
-        <label>Polling Interval (min):</label>
+        <label>轮询间隔（分钟）:</label>
         <input type="number" id="set-interval" min="5" value="30">
       </div>
       <div class="settings-row">
@@ -52,23 +52,22 @@
         <input type="text" id="set-chatid" placeholder="123456789">
       </div>
       <div class="toolbar" style="margin-top:12px">
-        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">Send Test</button>
-        <button class="btn btn-success btn-sm" onclick="saveSettings()">Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">发送测试</button>
+        <button class="btn btn-success btn-sm" onclick="saveSettings()">保存</button>
       </div>
     </div>
   </div>
 
-  <!-- Add/Edit Modal -->
   <div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h2 id="modal-title">Add Site</h2>
+      <h2 id="modal-title">添加站点</h2>
       <input type="hidden" id="edit-id">
       <div class="form-group">
-        <label>Name</label>
-        <input type="text" id="f-name" placeholder="My API">
+        <label>站点名称</label>
+        <input type="text" id="f-name" placeholder="例：小火箭">
       </div>
       <div class="form-group">
-        <label>Base URL</label>
+        <label>接口地址</label>
         <input type="text" id="f-url" placeholder="https://api.example.com">
       </div>
       <div class="form-group">
@@ -76,19 +75,19 @@
         <input type="text" id="f-key" placeholder="sk-xxxxxxxx">
       </div>
       <div class="form-group">
-        <label>Auth Type</label>
+        <label>认证方式</label>
         <select id="f-auth">
           <option value="bearer">Bearer Token</option>
-          <option value="url_key">URL Key</option>
+          <option value="url_key">URL 参数</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Alert Thresholds (comma separated)</label>
+        <label>告警阈值（逗号分隔，如 50, 10）</label>
         <input type="text" id="f-thresholds" placeholder="50, 10" value="10">
       </div>
       <div class="form-actions">
-        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitSite()">Save</button>
+        <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitSite()">保存</button>
       </div>
     </div>
   </div>

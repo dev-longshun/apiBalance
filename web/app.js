@@ -7,7 +7,7 @@ async function api(method, path, body) {
   const res = await fetch(API + path, opts);
   if (res.status === 204) return null;
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) throw new Error(data.error || '请求失败');
   return data;
 }
 
@@ -22,10 +22,10 @@ function toast(msg, type = 'success') {
 function timeAgo(iso) {
   if (!iso) return '-';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return Math.floor(diff) + 's ago';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  return Math.floor(diff / 86400) + 'd ago';
+  if (diff < 60) return Math.floor(diff) + '秒前';
+  if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+  if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+  return Math.floor(diff / 86400) + '天前';
 }
 
 function statusDot(status) {
@@ -59,26 +59,26 @@ function renderSites() {
   document.getElementById('stat-alerts').textContent = alerts;
 
   if (sites.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">No sites yet. Click "Add Site" to start.</div>';
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8">暂无站点，点击"添加站点"开始。</div>';
     return;
   }
 
   list.innerHTML = sites.map(s => {
     const threshStr = (s.thresholds || []).join(', ');
     const lowBadge = s.status === 'low' ? '<span class="low-badge">⚠️</span>' : '';
-    const balText = s.status === 'error' ? '<span style="color:#ef4444">Error</span>' : fmtBalance(s.balance, s.balance_unit);
+    const balText = s.status === 'error' ? '<span style="color:#ef4444">查询失败</span>' : fmtBalance(s.balance, s.balance_unit);
     const errInfo = s.last_error ? `<br><span style="color:#ef4444;font-size:0.8rem">${s.last_error.substring(0, 60)}</span>` : '';
 
     return `<div class="site-card">
       <div class="site-info">
         <div class="site-name">${statusDot(s.status)} ${esc(s.name)} ${lowBadge}</div>
-        <div class="site-meta">Last: ${timeAgo(s.last_check_at)} | Thresholds: $${threshStr}${errInfo}</div>
+        <div class="site-meta">上次: ${timeAgo(s.last_check_at)} | 阈值: $${threshStr}${errInfo}</div>
       </div>
       <div class="site-balance">${balText}</div>
       <div class="site-actions">
-        <button class="btn btn-secondary btn-sm" onclick="checkSite('${s.id}')">Check</button>
-        <button class="btn btn-secondary btn-sm" onclick="showEditModal('${s.id}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteSite('${s.id}','${esc(s.name)}')">Del</button>
+        <button class="btn btn-secondary btn-sm" onclick="checkSite('${s.id}')">查询</button>
+        <button class="btn btn-secondary btn-sm" onclick="showEditModal('${s.id}')">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSite('${s.id}','${esc(s.name)}')">删除</button>
       </div>
     </div>`;
   }).join('');
@@ -106,13 +106,13 @@ async function loadSettings() {
     document.getElementById('set-token').value = s.telegram_bot_token === '***configured***' ? '' : s.telegram_bot_token;
     document.getElementById('set-chatid').value = s.telegram_chat_id;
     if (s.telegram_bot_token === '***configured***') {
-      document.getElementById('set-token').placeholder = '***configured*** (leave empty to keep)';
+      document.getElementById('set-token').placeholder = '已配置（留空保持不变）';
     }
   } catch (_) {}
 }
 
 function showAddModal() {
-  document.getElementById('modal-title').textContent = 'Add Site';
+  document.getElementById('modal-title').textContent = '添加站点';
   document.getElementById('edit-id').value = '';
   document.getElementById('f-name').value = '';
   document.getElementById('f-url').value = '';
@@ -125,12 +125,12 @@ function showAddModal() {
 function showEditModal(id) {
   const s = sites.find(x => x.id === id);
   if (!s) return;
-  document.getElementById('modal-title').textContent = 'Edit Site';
+  document.getElementById('modal-title').textContent = '编辑站点';
   document.getElementById('edit-id').value = id;
   document.getElementById('f-name').value = s.name;
   document.getElementById('f-url').value = s.base_url;
   document.getElementById('f-key').value = '';
-  document.getElementById('f-key').placeholder = s.api_key_masked || 'Leave empty to keep';
+  document.getElementById('f-key').placeholder = s.api_key_masked || '留空保持不变';
   document.getElementById('f-auth').value = s.auth_type;
   document.getElementById('f-thresholds').value = (s.thresholds || []).join(', ');
   document.getElementById('modal').style.display = 'flex';
@@ -153,18 +153,18 @@ async function submitSite() {
   const auth = document.getElementById('f-auth').value;
   const thresholds = parseThresholds(document.getElementById('f-thresholds').value);
 
-  if (!name || !url) return toast('Name and URL required', 'error');
+  if (!name || !url) return toast('名称和地址不能为空', 'error');
 
   try {
     if (id) {
       const body = { name, base_url: url, auth_type: auth, thresholds };
       if (key) body.api_key = key;
       await api('PUT', '/sites/' + id, body);
-      toast('Site updated');
+      toast('站点已更新');
     } else {
-      if (!key) return toast('API Key required', 'error');
+      if (!key) return toast('API Key 不能为空', 'error');
       await api('POST', '/sites', { name, base_url: url, api_key: key, auth_type: auth, thresholds });
-      toast('Site added');
+      toast('站点已添加');
     }
     closeModal();
     await loadSites();
@@ -174,10 +174,10 @@ async function submitSite() {
 }
 
 async function deleteSite(id, name) {
-  if (!confirm('Delete "' + name + '"?')) return;
+  if (!confirm('确认删除"' + name + '"？')) return;
   try {
     await api('DELETE', '/sites/' + id);
-    toast('Site deleted');
+    toast('已删除');
     await loadSites();
   } catch (e) {
     toast(e.message, 'error');
@@ -187,7 +187,7 @@ async function deleteSite(id, name) {
 async function checkSite(id) {
   try {
     await api('POST', '/sites/' + id + '/check');
-    toast('Check complete');
+    toast('查询完成');
     await loadSites();
   } catch (e) {
     toast(e.message, 'error');
@@ -197,19 +197,19 @@ async function checkSite(id) {
 async function refreshAll() {
   const btn = document.getElementById('btn-refresh');
   btn.disabled = true;
-  btn.textContent = 'Refreshing...';
+  btn.textContent = '查询中...';
   try {
     await api('POST', '/check-all');
-    toast('Refresh started');
+    toast('已开始刷新');
     setTimeout(async () => {
       await loadSites();
       btn.disabled = false;
-      btn.textContent = 'Refresh All';
+      btn.textContent = '刷新全部';
     }, 3000);
   } catch (e) {
     toast(e.message, 'error');
     btn.disabled = false;
-    btn.textContent = 'Refresh All';
+    btn.textContent = '刷新全部';
   }
 }
 
@@ -234,7 +234,7 @@ async function saveSettings() {
 
   try {
     await api('PUT', '/settings', body);
-    toast('Settings saved');
+    toast('设置已保存');
   } catch (e) {
     toast(e.message, 'error');
   }
@@ -243,7 +243,7 @@ async function saveSettings() {
 async function testTelegram() {
   try {
     await api('POST', '/telegram/test');
-    toast('Test message sent');
+    toast('测试消息已发送');
   } catch (e) {
     toast(e.message, 'error');
   }

@@ -44,8 +44,20 @@ func (p *NewAPIProber) Probe(baseURL, apiKey, authType string) (*Result, error) 
 		return nil, fmt.Errorf("missing total_available in data")
 	}
 
+	extra := map[string]float64{"total_available_raw": totalAvailable}
+	if granted, ok := getFloat(data, "total_granted"); ok {
+		extra["total_granted"] = granted
+	}
+	if used, ok := getFloat(data, "total_used"); ok {
+		extra["total_used"] = used
+	}
+
+	// New API: 500000 quota units = $1 USD
+	balanceUSD := totalAvailable / 500000.0
+
 	return &Result{
-		Balance: totalAvailable,
-		Unit:    "Token",
+		Balance: balanceUSD,
+		Unit:    "USD",
+		Extra:   extra,
 	}, nil
 }
