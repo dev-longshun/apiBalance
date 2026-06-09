@@ -17,9 +17,11 @@ func NewSiteStore(db *DB) *SiteStore {
 
 func (s *SiteStore) Create(site *model.Site) error {
 	_, err := s.db.Exec(
-		`INSERT INTO sites (id, name, base_url, api_key, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		site.ID, site.Name, site.BaseURL, site.APIKey, site.AuthType,
+		`INSERT INTO sites (id, name, base_url, api_key, username, password, user_id, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		site.ID, site.Name, site.BaseURL, site.APIKey,
+		site.Username, site.Password, site.UserID,
+		site.AuthType,
 		site.Balance, site.BalanceUnit, site.DetectedType,
 		site.LastCheckAt, site.LastError, site.Status,
 		site.CreatedAt, site.UpdatedAt,
@@ -29,7 +31,7 @@ func (s *SiteStore) Create(site *model.Site) error {
 
 func (s *SiteStore) List() ([]model.Site, error) {
 	rows, err := s.db.Query(
-		`SELECT id, name, base_url, api_key, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at FROM sites ORDER BY created_at DESC`,
+		`SELECT id, name, base_url, api_key, username, password, user_id, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at FROM sites ORDER BY created_at DESC`,
 	)
 	if err != nil {
 		return nil, err
@@ -39,7 +41,9 @@ func (s *SiteStore) List() ([]model.Site, error) {
 	var sites []model.Site
 	for rows.Next() {
 		var site model.Site
-		if err := rows.Scan(&site.ID, &site.Name, &site.BaseURL, &site.APIKey, &site.AuthType,
+		if err := rows.Scan(&site.ID, &site.Name, &site.BaseURL, &site.APIKey,
+			&site.Username, &site.Password, &site.UserID,
+			&site.AuthType,
 			&site.Balance, &site.BalanceUnit, &site.DetectedType,
 			&site.LastCheckAt, &site.LastError, &site.Status,
 			&site.CreatedAt, &site.UpdatedAt); err != nil {
@@ -53,8 +57,10 @@ func (s *SiteStore) List() ([]model.Site, error) {
 func (s *SiteStore) Get(id string) (*model.Site, error) {
 	var site model.Site
 	err := s.db.QueryRow(
-		`SELECT id, name, base_url, api_key, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at FROM sites WHERE id = ?`, id,
-	).Scan(&site.ID, &site.Name, &site.BaseURL, &site.APIKey, &site.AuthType,
+		`SELECT id, name, base_url, api_key, username, password, user_id, auth_type, balance, balance_unit, detected_type, last_check_at, last_error, status, created_at, updated_at FROM sites WHERE id = ?`, id,
+	).Scan(&site.ID, &site.Name, &site.BaseURL, &site.APIKey,
+		&site.Username, &site.Password, &site.UserID,
+		&site.AuthType,
 		&site.Balance, &site.BalanceUnit, &site.DetectedType,
 		&site.LastCheckAt, &site.LastError, &site.Status,
 		&site.CreatedAt, &site.UpdatedAt)

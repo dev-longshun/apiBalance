@@ -10,7 +10,7 @@ import (
 // Prober interface - each API format implements this.
 type Prober interface {
 	Name() string
-	Probe(baseURL, apiKey, authType string) (*Result, error)
+	Probe(site *model.Site) (*Result, error)
 }
 
 // Result holds the outcome of a single successful probe.
@@ -40,12 +40,12 @@ func New() *Checker {
 // Check probes a single site. If cachedType matches a registered prober name,
 // that prober is tried first. Otherwise (or on cached miss) all probers are
 // tried in registration order. The first success wins.
-func (c *Checker) Check(baseURL, apiKey, authType, cachedType string) *model.CheckResult {
+func (c *Checker) Check(site *model.Site) *model.CheckResult {
 	// If we have a cached type, try that prober first.
-	if cachedType != "" {
+	if site.DetectedType != "" {
 		for _, p := range c.probers {
-			if p.Name() == cachedType {
-				res, err := p.Probe(baseURL, apiKey, authType)
+			if p.Name() == site.DetectedType {
+				res, err := p.Probe(site)
 				if err == nil && res != nil {
 					return &model.CheckResult{
 						Balance:      res.Balance,
@@ -62,7 +62,7 @@ func (c *Checker) Check(baseURL, apiKey, authType, cachedType string) *model.Che
 	// Try all probers in order.
 	var lastErr string
 	for _, p := range c.probers {
-		res, err := p.Probe(baseURL, apiKey, authType)
+		res, err := p.Probe(site)
 		if err != nil {
 			lastErr = fmt.Sprintf("%s: %v", p.Name(), err)
 			continue
@@ -101,7 +101,7 @@ func (c *Checker) CheckWithConcurrency(sites []model.Site, maxConcurrency int) m
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			cr := c.Check(s.BaseURL, s.APIKey, s.AuthType, s.DetectedType)
+			cr := c.Check(&s)
 			mu.Lock()
 			results[s.ID] = cr
 			mu.Unlock()

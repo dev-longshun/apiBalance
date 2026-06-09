@@ -37,25 +37,6 @@
 
     <div class="site-list" id="site-list"></div>
 
-    <div class="settings-panel" id="settings-panel" style="display:none">
-      <h2>系统设置</h2>
-      <div class="settings-row">
-        <label>轮询间隔（分钟）:</label>
-        <input type="number" id="set-interval" min="5" value="30">
-      </div>
-      <div class="settings-row">
-        <label>Telegram Bot Token:</label>
-        <input type="password" id="set-token" placeholder="7000000000:AAxxxxxxxxx">
-      </div>
-      <div class="settings-row">
-        <label>Telegram Chat ID:</label>
-        <input type="text" id="set-chatid" placeholder="123456789">
-      </div>
-      <div class="toolbar" style="margin-top:12px">
-        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">发送测试</button>
-        <button class="btn btn-success btn-sm" onclick="saveSettings()">保存</button>
-      </div>
-    </div>
   </div>
 
   <div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this)closeModal()">
@@ -71,7 +52,19 @@
         <input type="text" id="f-url" placeholder="https://api.example.com">
       </div>
       <div class="form-group">
-        <label>API Key</label>
+        <label>用户名（NewAPI 登录查询）</label>
+        <input type="text" id="f-username" placeholder="留空则使用 API Key 查询">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="f-password" placeholder="留空则使用 API Key 查询">
+      </div>
+      <div class="form-group">
+        <label>User ID（可选，留空自动获取）</label>
+        <input type="text" id="f-userid" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>API Key（无用户名密码时使用）</label>
         <input type="text" id="f-key" placeholder="sk-xxxxxxxx">
       </div>
       <div class="form-group">
@@ -88,6 +81,29 @@
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="closeModal()">取消</button>
         <button class="btn btn-primary" onclick="submitSite()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settings-modal" style="display:none" onclick="if(event.target===this)closeSettings()">
+    <div class="modal">
+      <h2>系统设置</h2>
+      <div class="form-group">
+        <label>轮询间隔（分钟）</label>
+        <input type="number" id="set-interval" min="5" value="30">
+      </div>
+      <div class="form-group">
+        <label>Telegram Bot Token</label>
+        <input type="password" id="set-token" placeholder="7000000000:AAxxxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>Telegram Chat ID</label>
+        <input type="text" id="set-chatid" placeholder="123456789">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">发送测试</button>
+        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
+        <button class="btn btn-primary" onclick="saveSettings()">保存</button>
       </div>
     </div>
   </div>

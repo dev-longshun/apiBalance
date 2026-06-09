@@ -37,7 +37,7 @@ func (h *CheckHandler) CheckSite(c *gin.Context) {
 		return
 	}
 
-	result := h.checker.Check(site.BaseURL, site.APIKey, site.AuthType, site.DetectedType)
+	result := h.checker.Check(site)
 
 	status := "ok"
 	lastError := ""

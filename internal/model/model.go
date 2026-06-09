@@ -3,30 +3,34 @@ package model
 import "time"
 
 type Site struct {
-	ID           string      `json:"id"`
-	Name         string      `json:"name"`
-	BaseURL      string      `json:"base_url"`
-	APIKey       string      `json:"api_key,omitempty"`
-	APIKeyMasked string      `json:"api_key_masked,omitempty"`
-	AuthType     string      `json:"auth_type"`
-	Balance      float64     `json:"balance"`
-	BalanceUnit  string      `json:"balance_unit"`
-	DetectedType string      `json:"detected_type"`
-	LastCheckAt  string      `json:"last_check_at"`
-	LastError    string      `json:"last_error"`
-	Status       string      `json:"status"`
-	Thresholds   []float64   `json:"thresholds"`
-	CreatedAt    string      `json:"created_at"`
-	UpdatedAt    string      `json:"updated_at"`
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	BaseURL      string    `json:"base_url"`
+	APIKey       string    `json:"api_key,omitempty"`
+	APIKeyMasked string    `json:"api_key_masked,omitempty"`
+	Username     string    `json:"username,omitempty"`
+	Password     string    `json:"password,omitempty"`
+	UserID       int       `json:"user_id"`
+	AuthType     string    `json:"auth_type"`
+	Balance      float64   `json:"balance"`
+	BalanceUnit  string    `json:"balance_unit"`
+	DetectedType string    `json:"detected_type"`
+	LastCheckAt  string    `json:"last_check_at"`
+	LastError    string    `json:"last_error"`
+	Status       string    `json:"status"`
+	Thresholds   []float64 `json:"thresholds"`
+	CreatedAt    string    `json:"created_at"`
+	UpdatedAt    string    `json:"updated_at"`
 }
 
-func (s *Site) MaskKey() {
+func (s *Site) MaskSecrets() {
 	if len(s.APIKey) > 6 {
 		s.APIKeyMasked = s.APIKey[:6] + "***"
 	} else if s.APIKey != "" {
 		s.APIKeyMasked = "***"
 	}
 	s.APIKey = ""
+	s.Password = ""
 }
 
 type Threshold struct {
@@ -52,7 +56,10 @@ type AlertSent struct {
 type SiteCreateRequest struct {
 	Name       string    `json:"name" binding:"required"`
 	BaseURL    string    `json:"base_url" binding:"required"`
-	APIKey     string    `json:"api_key" binding:"required"`
+	APIKey     string    `json:"api_key"`
+	Username   string    `json:"username"`
+	Password   string    `json:"password"`
+	UserID     int       `json:"user_id"`
 	AuthType   string    `json:"auth_type"`
 	Thresholds []float64 `json:"thresholds"`
 }
@@ -61,6 +68,9 @@ type SiteUpdateRequest struct {
 	Name       *string    `json:"name"`
 	BaseURL    *string    `json:"base_url"`
 	APIKey     *string    `json:"api_key"`
+	Username   *string    `json:"username"`
+	Password   *string    `json:"password"`
+	UserID     *int       `json:"user_id"`
 	AuthType   *string    `json:"auth_type"`
 	Thresholds *[]float64 `json:"thresholds"`
 }

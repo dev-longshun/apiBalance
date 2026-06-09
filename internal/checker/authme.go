@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"quota-sentinel/internal/model"
 )
 
 // AuthMeProber implements the JWT/auth me format.
@@ -13,12 +15,12 @@ type AuthMeProber struct{}
 
 func (p *AuthMeProber) Name() string { return "auth_me" }
 
-func (p *AuthMeProber) Probe(baseURL, apiKey, authType string) (*Result, error) {
-	baseURL = strings.TrimRight(baseURL, "/")
+func (p *AuthMeProber) Probe(site *model.Site) (*Result, error) {
+	baseURL := strings.TrimRight(site.BaseURL, "/")
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	url := baseURL + "/api/v1/auth/me"
-	body, err := doRequest(client, url, apiKey, authType)
+	body, err := doRequest(client, url, site.APIKey, site.AuthType)
 	if err != nil {
 		return nil, fmt.Errorf("auth/me request failed: %w", err)
 	}

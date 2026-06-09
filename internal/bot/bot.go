@@ -199,7 +199,7 @@ func (b *Bot) handleBalanceSingle(msg *tgbotapi.Message, query string) {
 	site := allSites[matched[0]]
 	b.sendText(msg.Chat.ID, fmt.Sprintf("⏳ 正在查询站点「%s」余额...", site.Name))
 
-	cr := b.checker.Check(site.BaseURL, site.APIKey, site.AuthType, site.DetectedType)
+	cr := b.checker.Check(&site)
 
 	if cr.Error != "" {
 		b.sendText(msg.Chat.ID, fmt.Sprintf("🔴 站点「%s」查询失败: %s", site.Name, cr.Error))

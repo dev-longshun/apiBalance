@@ -37,7 +37,7 @@ func (h *SiteHandler) List(c *gin.Context) {
 		if err == nil {
 			sites[i].Thresholds = amounts
 		}
-		sites[i].MaskKey()
+		sites[i].MaskSecrets()
 	}
 
 	c.JSON(http.StatusOK, sites)
@@ -63,6 +63,9 @@ func (h *SiteHandler) Create(c *gin.Context) {
 		Name:      req.Name,
 		BaseURL:   req.BaseURL,
 		APIKey:    req.APIKey,
+		Username:  req.Username,
+		Password:  req.Password,
+		UserID:    req.UserID,
 		AuthType:  req.AuthType,
 		Status:    "unknown",
 		CreatedAt: now,
@@ -83,7 +86,7 @@ func (h *SiteHandler) Create(c *gin.Context) {
 
 	// Trigger async balance check.
 	go func(s model.Site) {
-		result := h.checker.Check(s.BaseURL, s.APIKey, s.AuthType, "")
+		result := h.checker.Check(&s)
 		status := "ok"
 		lastError := ""
 		if result.Error != "" {
@@ -103,7 +106,7 @@ func (h *SiteHandler) Create(c *gin.Context) {
 		h.sites.UpdateBalance(s.ID, result.Balance, result.Unit, result.DetectedType, status, lastError)
 	}(*site)
 
-	site.MaskKey()
+	site.MaskSecrets()
 	c.JSON(http.StatusCreated, site)
 }
 
@@ -143,6 +146,20 @@ func (h *SiteHandler) Update(c *gin.Context) {
 		site.APIKey = *req.APIKey
 		clearDetected = true
 	}
+	if req.Username != nil {
+		updates["username"] = *req.Username
+		site.Username = *req.Username
+		clearDetected = true
+	}
+	if req.Password != nil {
+		updates["password"] = *req.Password
+		site.Password = *req.Password
+		clearDetected = true
+	}
+	if req.UserID != nil {
+		updates["user_id"] = *req.UserID
+		site.UserID = *req.UserID
+	}
 	if req.AuthType != nil {
 		updates["auth_type"] = *req.AuthType
 		site.AuthType = *req.AuthType
@@ -172,7 +189,7 @@ func (h *SiteHandler) Update(c *gin.Context) {
 		}
 	}
 
-	site.MaskKey()
+	site.MaskSecrets()
 	c.JSON(http.StatusOK, site)
 }
 

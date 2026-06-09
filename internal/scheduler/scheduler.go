@@ -134,7 +134,8 @@ func (s *Scheduler) pollAll() {
 
 	tg := s.notifyFn()
 
-	for _, site := range sites {
+	for i := range sites {
+		site := &sites[i]
 		result, ok := results[site.ID]
 		if !ok {
 			continue

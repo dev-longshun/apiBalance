@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"quota-sentinel/internal/model"
 )
 
 // OpenAIProber implements the OpenAI-compatible billing API format.
@@ -14,13 +16,13 @@ type OpenAIProber struct{}
 
 func (p *OpenAIProber) Name() string { return "openai_compat" }
 
-func (p *OpenAIProber) Probe(baseURL, apiKey, authType string) (*Result, error) {
-	baseURL = strings.TrimRight(baseURL, "/")
+func (p *OpenAIProber) Probe(site *model.Site) (*Result, error) {
+	baseURL := strings.TrimRight(site.BaseURL, "/")
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	// GET /v1/dashboard/billing/subscription
 	subURL := baseURL + "/v1/dashboard/billing/subscription"
-	body, err := doRequest(client, subURL, apiKey, authType)
+	body, err := doRequest(client, subURL, site.APIKey, site.AuthType)
 	if err != nil {
 		return nil, fmt.Errorf("subscription request failed: %w", err)
 	}
@@ -55,7 +57,7 @@ func (p *OpenAIProber) Probe(baseURL, apiKey, authType string) (*Result, error) 
 	usageURL := fmt.Sprintf("%s/v1/dashboard/billing/usage?start_date=%s&end_date=%s",
 		baseURL, startDate, endDate)
 
-	usageBody, err := doRequest(client, usageURL, apiKey, authType)
+	usageBody, err := doRequest(client, usageURL, site.APIKey, site.AuthType)
 	if err != nil {
 		return nil, fmt.Errorf("usage request failed: %w", err)
 	}

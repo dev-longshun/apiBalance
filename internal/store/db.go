@@ -45,7 +45,10 @@ CREATE TABLE IF NOT EXISTS sites (
     id            TEXT PRIMARY KEY,
     name          TEXT NOT NULL UNIQUE,
     base_url      TEXT NOT NULL,
-    api_key       TEXT NOT NULL,
+    api_key       TEXT NOT NULL DEFAULT '',
+    username      TEXT NOT NULL DEFAULT '',
+    password      TEXT NOT NULL DEFAULT '',
+    user_id       INTEGER NOT NULL DEFAULT 0,
     auth_type     TEXT NOT NULL DEFAULT 'bearer',
     balance       REAL NOT NULL DEFAULT 0,
     balance_unit  TEXT NOT NULL DEFAULT '',
@@ -70,6 +73,44 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 `
-	_, err := db.Exec(ddl)
-	return err
+	if _, err := db.Exec(ddl); err != nil {
+		return err
+	}
+
+	// Add columns for existing databases that lack them.
+	for _, col := range []struct{ name, typ, dflt string }{
+		{"username", "TEXT", "''"},
+		{"password", "TEXT", "''"},
+		{"user_id", "INTEGER", "0"},
+	} {
+		if !columnExists(db, "sites", col.name) {
+			_, err := db.Exec("ALTER TABLE sites ADD COLUMN " + col.name + " " + col.typ + " NOT NULL DEFAULT " + col.dflt)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func columnExists(db *sql.DB, table, column string) bool {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull int
+		var dfltValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dfltValue, &pk); err != nil {
+			return false
+		}
+		if name == column {
+			return true
+		}
+	}
+	return false
 }

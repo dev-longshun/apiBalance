@@ -22,11 +22,19 @@ function toast(msg, type = 'success') {
 function timeAgo(iso) {
   if (!iso) return '-';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 0) return '刚刚';
   if (diff < 60) return Math.floor(diff) + '秒前';
   if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
   if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
   return Math.floor(diff / 86400) + '天前';
 }
+
+// Refresh all time-ago labels every 10 seconds without re-fetching data.
+setInterval(() => {
+  document.querySelectorAll('[data-time]').forEach(el => {
+    el.textContent = timeAgo(el.dataset.time);
+  });
+}, 10000);
 
 function statusDot(status) {
   return `<span class="status-dot status-${status || 'unknown'}"></span>`;
@@ -68,11 +76,12 @@ function renderSites() {
     const lowBadge = s.status === 'low' ? '<span class="low-badge">⚠️</span>' : '';
     const balText = s.status === 'error' ? '<span style="color:#ef4444">查询失败</span>' : fmtBalance(s.balance, s.balance_unit);
     const errInfo = s.last_error ? `<br><span style="color:#ef4444;font-size:0.8rem">${s.last_error.substring(0, 60)}</span>` : '';
+    const timeISO = s.last_check_at || '';
 
     return `<div class="site-card">
       <div class="site-info">
         <div class="site-name">${statusDot(s.status)} ${esc(s.name)} ${lowBadge}</div>
-        <div class="site-meta">上次: ${timeAgo(s.last_check_at)} | 阈值: $${threshStr}${errInfo}</div>
+        <div class="site-meta">上次: <span data-time="${esc(timeISO)}">${timeAgo(timeISO)}</span> | 阈值: $${threshStr}${errInfo}</div>
       </div>
       <div class="site-balance">${balText}</div>
       <div class="site-actions">
@@ -116,7 +125,12 @@ function showAddModal() {
   document.getElementById('edit-id').value = '';
   document.getElementById('f-name').value = '';
   document.getElementById('f-url').value = '';
+  document.getElementById('f-username').value = '';
+  document.getElementById('f-password').value = '';
+  document.getElementById('f-password').placeholder = '留空则使用 API Key 查询';
+  document.getElementById('f-userid').value = '';
   document.getElementById('f-key').value = '';
+  document.getElementById('f-key').placeholder = 'sk-xxxxxxxx';
   document.getElementById('f-auth').value = 'bearer';
   document.getElementById('f-thresholds').value = '10';
   document.getElementById('modal').style.display = 'flex';
@@ -129,6 +143,10 @@ function showEditModal(id) {
   document.getElementById('edit-id').value = id;
   document.getElementById('f-name').value = s.name;
   document.getElementById('f-url').value = s.base_url;
+  document.getElementById('f-username').value = s.username || '';
+  document.getElementById('f-password').value = '';
+  document.getElementById('f-password').placeholder = s.username ? '已配置（留空保持不变）' : '留空则使用 API Key 查询';
+  document.getElementById('f-userid').value = s.user_id || '';
   document.getElementById('f-key').value = '';
   document.getElementById('f-key').placeholder = s.api_key_masked || '留空保持不变';
   document.getElementById('f-auth').value = s.auth_type;
@@ -139,16 +157,20 @@ function showEditModal(id) {
 function closeModal() {
   document.getElementById('modal').style.display = 'none';
   document.getElementById('f-key').placeholder = 'sk-xxxxxxxx';
+  document.getElementById('f-password').placeholder = '留空则使用 API Key 查询';
 }
 
 function parseThresholds(str) {
-  return str.split(',').map(s => parseFloat(s.trim())).filter(n => n > 0).sort((a, b) => b - a);
+  return str.split(/[,，]/).map(s => parseFloat(s.trim())).filter(n => n > 0).sort((a, b) => b - a);
 }
 
 async function submitSite() {
   const id = document.getElementById('edit-id').value;
   const name = document.getElementById('f-name').value.trim();
   const url = document.getElementById('f-url').value.trim();
+  const username = document.getElementById('f-username').value.trim();
+  const password = document.getElementById('f-password').value;
+  const userid = document.getElementById('f-userid').value.trim();
   const key = document.getElementById('f-key').value.trim();
   const auth = document.getElementById('f-auth').value;
   const thresholds = parseThresholds(document.getElementById('f-thresholds').value);
@@ -159,11 +181,19 @@ async function submitSite() {
     if (id) {
       const body = { name, base_url: url, auth_type: auth, thresholds };
       if (key) body.api_key = key;
+      if (username) body.username = username;
+      if (password) body.password = password;
+      if (userid) body.user_id = parseInt(userid) || 0;
       await api('PUT', '/sites/' + id, body);
       toast('站点已更新');
     } else {
-      if (!key) return toast('API Key 不能为空', 'error');
-      await api('POST', '/sites', { name, base_url: url, api_key: key, auth_type: auth, thresholds });
+      if (!username && !key) return toast('用户名密码 或 API Key 至少填一项', 'error');
+      const body = { name, base_url: url, auth_type: auth, thresholds };
+      if (key) body.api_key = key;
+      if (username) body.username = username;
+      if (password) body.password = password;
+      if (userid) body.user_id = parseInt(userid) || 0;
+      await api('POST', '/sites', body);
       toast('站点已添加');
     }
     closeModal();
@@ -214,13 +244,12 @@ async function refreshAll() {
 }
 
 function toggleSettings() {
-  const panel = document.getElementById('settings-panel');
-  if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    loadSettings();
-  } else {
-    panel.style.display = 'none';
-  }
+  document.getElementById('settings-modal').style.display = 'flex';
+  loadSettings();
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').style.display = 'none';
 }
 
 async function saveSettings() {
@@ -235,6 +264,7 @@ async function saveSettings() {
   try {
     await api('PUT', '/settings', body);
     toast('设置已保存');
+    closeSettings();
   } catch (e) {
     toast(e.message, 'error');
   }
