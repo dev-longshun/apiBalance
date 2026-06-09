@@ -141,22 +141,39 @@ func (b *Bot) handleCallback(cq *tgbotapi.CallbackQuery) {
 }
 
 func (b *Bot) handleMessage(msg *tgbotapi.Message) {
-	if !msg.IsCommand() {
+	if msg.IsCommand() {
+		chatID := msg.Chat.ID
+		switch msg.Command() {
+		case "start":
+			b.sendStart(chatID)
+		case "balance":
+			b.doBalance(chatID)
+		case "refresh":
+			b.doRefresh(chatID)
+		case "status":
+			b.doStatus(chatID)
+		case "help":
+			b.doHelp(chatID)
+		}
 		return
 	}
-	chatID := msg.Chat.ID
-	switch msg.Command() {
-	case "start":
-		b.sendStart(chatID)
-	case "balance":
-		b.doBalance(chatID)
-	case "refresh":
-		b.doRefresh(chatID)
-	case "status":
-		b.doStatus(chatID)
-	case "help":
-		b.doHelp(chatID)
+
+	if b.isMentioned(msg) {
+		b.sendStart(msg.Chat.ID)
 	}
+}
+
+func (b *Bot) isMentioned(msg *tgbotapi.Message) bool {
+	botName := "@" + b.api.Self.UserName
+	for _, entity := range msg.Entities {
+		if entity.Type == "mention" {
+			mention := msg.Text[entity.Offset : entity.Offset+entity.Length]
+			if strings.EqualFold(mention, botName) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (b *Bot) sendStart(chatID int64) {
