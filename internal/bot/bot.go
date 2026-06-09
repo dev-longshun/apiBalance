@@ -14,7 +14,7 @@ import (
 
 type Bot struct {
 	api        *tgbotapi.BotAPI
-	chatID     int64
+	chatIDs    map[int64]bool
 	checker    *checker.Checker
 	sites      *store.SiteStore
 	thresholds *store.ThresholdStore
@@ -26,15 +26,20 @@ type Bot struct {
 	NextPollAt string
 }
 
-func New(token string, chatID int64, chk *checker.Checker, sites *store.SiteStore, thresholds *store.ThresholdStore, settings *store.SettingStore) (*Bot, error) {
+func New(token string, chatIDs []int64, chk *checker.Checker, sites *store.SiteStore, thresholds *store.ThresholdStore, settings *store.SettingStore) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("create bot api: %w", err)
 	}
 
+	idSet := make(map[int64]bool, len(chatIDs))
+	for _, id := range chatIDs {
+		idSet[id] = true
+	}
+
 	return &Bot{
 		api:        api,
-		chatID:     chatID,
+		chatIDs:    idSet,
 		checker:    chk,
 		sites:      sites,
 		thresholds: thresholds,
@@ -69,7 +74,7 @@ func (b *Bot) Start(ctx context.Context) {
 					return
 				}
 				if update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
-					if update.CallbackQuery.Message.Chat.ID == b.chatID {
+					if b.chatIDs[update.CallbackQuery.Message.Chat.ID] {
 						b.handleCallback(update.CallbackQuery)
 					}
 					continue
@@ -77,7 +82,7 @@ func (b *Bot) Start(ctx context.Context) {
 				if update.Message == nil {
 					continue
 				}
-				if update.Message.Chat.ID != b.chatID {
+				if !b.chatIDs[update.Message.Chat.ID] {
 					continue
 				}
 				b.handleMessage(update.Message)

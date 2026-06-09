@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -87,9 +88,15 @@ func main() {
 	token, _ := srv.Settings.Get("telegram_bot_token")
 	chatIDStr, _ := srv.Settings.Get("telegram_chat_id")
 	if token != "" && chatIDStr != "" {
-		chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
-		if err == nil {
-			tgBot, err = bot.New(token, chatID, chk, srv.Sites, srv.Thresholds, srv.Settings)
+		var chatIDs []int64
+		for _, s := range strings.Split(chatIDStr, ",") {
+			s = strings.TrimSpace(s)
+			if id, err := strconv.ParseInt(s, 10, 64); err == nil {
+				chatIDs = append(chatIDs, id)
+			}
+		}
+		if len(chatIDs) > 0 {
+			tgBot, err = bot.New(token, chatIDs, chk, srv.Sites, srv.Thresholds, srv.Settings)
 			if err != nil {
 				log.Printf("[bot] failed to start: %v", err)
 			} else {

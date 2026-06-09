@@ -5,41 +5,52 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
 type Telegram struct {
 	botToken string
-	chatID   string
+	chatIDs  []string
 }
 
-func New(botToken, chatID string) *Telegram {
+func New(botToken, chatIDs string) *Telegram {
+	var ids []string
+	for _, id := range strings.Split(chatIDs, ",") {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
 	return &Telegram{
 		botToken: botToken,
-		chatID:   chatID,
+		chatIDs:  ids,
 	}
 }
 
 func (t *Telegram) IsConfigured() bool {
-	return t.botToken != "" && t.chatID != ""
+	return t.botToken != "" && len(t.chatIDs) > 0
 }
 
-// Send sends a Markdown message via the Telegram Bot API. It retries once on failure.
+// Send sends a Markdown message to all configured chat IDs. It retries once per chat on failure.
 func (t *Telegram) Send(text string) error {
-	err := t.send(text)
-	if err != nil {
-		// Retry once.
-		time.Sleep(2 * time.Second)
-		err = t.send(text)
+	var lastErr error
+	for _, chatID := range t.chatIDs {
+		if err := t.sendTo(chatID, text); err != nil {
+			time.Sleep(2 * time.Second)
+			if err = t.sendTo(chatID, text); err != nil {
+				lastErr = err
+			}
+		}
 	}
-	return err
+	return lastErr
 }
 
-func (t *Telegram) send(text string) error {
+func (t *Telegram) sendTo(chatID, text string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.botToken)
 
 	payload := map[string]string{
-		"chat_id":    t.chatID,
+		"chat_id":    chatID,
 		"text":       text,
 		"parse_mode": "Markdown",
 	}
