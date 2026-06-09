@@ -48,6 +48,15 @@ func New(token string, chatID int64, chk *checker.Checker, sites *store.SiteStor
 func (b *Bot) Start(ctx context.Context) {
 	ctx, b.cancel = context.WithCancel(ctx)
 
+	// Register command menu so Telegram shows them in the "/" picker.
+	commands := tgbotapi.NewSetMyCommands(
+		tgbotapi.BotCommand{Command: "balance", Description: "查询所有站点余额"},
+		tgbotapi.BotCommand{Command: "refresh", Description: "刷新所有站点余额"},
+		tgbotapi.BotCommand{Command: "status", Description: "系统运行状态"},
+		tgbotapi.BotCommand{Command: "help", Description: "帮助信息"},
+	)
+	b.api.Request(commands)
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 30
 
@@ -84,11 +93,24 @@ func (b *Bot) Stop() {
 }
 
 func (b *Bot) handleMessage(msg *tgbotapi.Message) {
+	// Handle keyboard button taps (plain text, not commands).
 	if !msg.IsCommand() {
+		switch msg.Text {
+		case "📊 查询余额":
+			b.handleBalance(msg)
+		case "🔄 刷新余额":
+			b.handleRefresh(msg)
+		case "📈 系统状态":
+			b.handleStatus(msg)
+		case "❓ 帮助":
+			b.handleHelp(msg)
+		}
 		return
 	}
 
 	switch msg.Command() {
+	case "start":
+		b.handleStart(msg)
 	case "balance":
 		b.handleBalance(msg)
 	case "refresh":
@@ -98,6 +120,26 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	case "help":
 		b.handleHelp(msg)
 	}
+}
+
+func (b *Bot) handleStart(msg *tgbotapi.Message) {
+	text := "👋 欢迎使用 Quota Sentinel\n\n点击下方按钮快速操作："
+
+	keyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("📊 查询余额"),
+			tgbotapi.NewKeyboardButton("🔄 刷新余额"),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("📈 系统状态"),
+			tgbotapi.NewKeyboardButton("❓ 帮助"),
+		),
+	)
+	keyboard.ResizeKeyboard = true
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, text)
+	reply.ReplyMarkup = keyboard
+	b.api.Send(reply)
 }
 
 func (b *Bot) handleBalance(msg *tgbotapi.Message) {
