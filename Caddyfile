@@ -1,0 +1,3 @@
+upstream.longjinapi.com {
+	reverse_proxy quota-sentinel:8080
+}
