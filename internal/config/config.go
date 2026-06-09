@@ -35,7 +35,7 @@ type TelegramConfig struct {
 func Load(path string) (*Config, error) {
 	cfg := &Config{
 		Server:    ServerConfig{Port: 8080},
-		Database:  DatabaseConfig{Path: "./data/quota-sentinel.db"},
+		Database:  DatabaseConfig{Path: "./data/upstream-balance.db"},
 		Scheduler: SchedulerConfig{IntervalMinutes: 30, MaxConcurrency: 10},
 	}
 

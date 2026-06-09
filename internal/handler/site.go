@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"quota-sentinel/internal/checker"
-	"quota-sentinel/internal/model"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/checker"
+	"upstream-balance/internal/model"
+	"upstream-balance/internal/store"
 )
 
 type SiteHandler struct {

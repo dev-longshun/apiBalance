@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"quota-sentinel/internal/checker"
-	"quota-sentinel/internal/model"
-	"quota-sentinel/internal/notifier"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/checker"
+	"upstream-balance/internal/model"
+	"upstream-balance/internal/notifier"
+	"upstream-balance/internal/store"
 )
 
 type Scheduler struct {

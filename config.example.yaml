@@ -2,7 +2,7 @@ server:
   port: 8080
 
 database:
-  path: "./data/quota-sentinel.db"
+  path: "./data/upstream-balance.db"
 
 scheduler:
   interval_minutes: 30

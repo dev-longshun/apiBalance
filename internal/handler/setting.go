@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"quota-sentinel/internal/model"
-	"quota-sentinel/internal/notifier"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/model"
+	"upstream-balance/internal/notifier"
+	"upstream-balance/internal/store"
 )
 
 type SettingHandler struct {

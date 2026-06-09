@@ -8,8 +8,8 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
-	"quota-sentinel/internal/checker"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/checker"
+	"upstream-balance/internal/store"
 )
 
 type Bot struct {
@@ -123,7 +123,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
-	text := "👋 欢迎使用 Quota Sentinel\n\n点击下方按钮快速操作："
+	text := "👋 欢迎使用上游渠道额度监控\n\n点击下方按钮快速操作："
 
 	keyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -357,7 +357,7 @@ func (b *Bot) handleStatus(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleHelp(msg *tgbotapi.Message) {
-	text := `🤖 Quota Sentinel Bot
+	text := `🤖 UpstreamBalance Bot
 
 可用命令:
 /balance - 查询所有站点余额

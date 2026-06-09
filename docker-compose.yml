@@ -1,5 +1,5 @@
 services:
-  quota-sentinel:
+  upstream-balance:
     build: .
     ports:
       - "127.0.0.1:8085:8080"

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 // NewAPIProber implements the NewAPI/OneAPI balance query.

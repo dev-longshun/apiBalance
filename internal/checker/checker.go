@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 // Prober interface - each API format implements this.

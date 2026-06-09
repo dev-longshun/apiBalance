@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"quota-sentinel/internal/checker"
-	"quota-sentinel/internal/model"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/checker"
+	"upstream-balance/internal/model"
+	"upstream-balance/internal/store"
 )
 
 type CheckHandler struct {

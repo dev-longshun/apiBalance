@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 // Sub2APIProber implements the sub2api usage format.

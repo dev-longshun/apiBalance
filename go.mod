@@ -1,4 +1,4 @@
-module quota-sentinel
+module upstream-balance
 
 go 1.22
 

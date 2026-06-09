@@ -70,5 +70,5 @@ func (t *Telegram) SendAlert(siteName string, balance float64, threshold float64
 }
 
 func (t *Telegram) SendTestMessage() error {
-	return t.Send("✅ Quota Sentinel 测试消息发送成功！")
+	return t.Send("✅ UpstreamBalance 测试消息发送成功！")
 }

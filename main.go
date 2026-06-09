@@ -15,15 +15,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"quota-sentinel/internal/bot"
-	"quota-sentinel/internal/checker"
-	"quota-sentinel/internal/config"
-	"quota-sentinel/internal/handler"
-	"quota-sentinel/internal/notifier"
-	"quota-sentinel/internal/scheduler"
-	"quota-sentinel/internal/server"
-	"quota-sentinel/internal/store"
-	"quota-sentinel/web"
+	"upstream-balance/internal/bot"
+	"upstream-balance/internal/checker"
+	"upstream-balance/internal/config"
+	"upstream-balance/internal/handler"
+	"upstream-balance/internal/notifier"
+	"upstream-balance/internal/scheduler"
+	"upstream-balance/internal/server"
+	"upstream-balance/internal/store"
+	"upstream-balance/web"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 type SiteStore struct {

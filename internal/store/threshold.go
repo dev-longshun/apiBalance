@@ -1,6 +1,6 @@
 package store
 
-import "quota-sentinel/internal/model"
+import "upstream-balance/internal/model"
 
 type ThresholdStore struct {
 	db *DB

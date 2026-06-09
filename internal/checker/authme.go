@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 // AuthMeProber implements the JWT/auth me format.

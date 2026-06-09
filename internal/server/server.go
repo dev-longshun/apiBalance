@@ -8,8 +8,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"quota-sentinel/internal/config"
-	"quota-sentinel/internal/store"
+	"upstream-balance/internal/config"
+	"upstream-balance/internal/store"
 )
 
 type Server struct {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"quota-sentinel/internal/model"
+	"upstream-balance/internal/model"
 )
 
 // OpenAIProber implements the OpenAI-compatible billing API format.
