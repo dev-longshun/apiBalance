@@ -10,4 +10,8 @@ scheduler:
 
 telegram:
   bot_token: ""
-  chat_id: ""
+  chat_id: ""          # 支持逗号分隔多个 ID
+
+admin:
+  username: ""
+  password: ""
