@@ -3,12 +3,14 @@ package bot
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"upstream-balance/internal/checker"
+	"upstream-balance/internal/model"
 	"upstream-balance/internal/store"
 )
 
@@ -54,6 +56,7 @@ func (b *Bot) Start(ctx context.Context) {
 	commands := tgbotapi.NewSetMyCommands(
 		tgbotapi.BotCommand{Command: "start", Description: "打开主菜单"},
 		tgbotapi.BotCommand{Command: "balance", Description: "查询所有站点余额"},
+		tgbotapi.BotCommand{Command: "topup", Description: "打开各站点充值/控制台"},
 		tgbotapi.BotCommand{Command: "refresh", Description: "刷新所有站点余额"},
 		tgbotapi.BotCommand{Command: "status", Description: "系统运行状态"},
 		tgbotapi.BotCommand{Command: "help", Description: "帮助信息"},
@@ -105,7 +108,10 @@ func mainMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("🔄 刷新余额", "refresh"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 去充值", "topup"),
 			tgbotapi.NewInlineKeyboardButtonData("📈 系统状态", "status"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("❓ 帮助", "help"),
 		),
 	)
@@ -114,10 +120,72 @@ func mainMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 func backMenuKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 去充值", "topup"),
 			tgbotapi.NewInlineKeyboardButtonData("🔄 刷新余额", "refresh"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔙 主菜单", "start"),
 		),
 	)
+}
+
+// isHTTPURL accepts only absolute http(s) URLs for Telegram url buttons.
+func isHTTPURL(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return u.Host != ""
+}
+
+// siteLinkButtons builds rows of url buttons (max 2 per row) for sites that have a link.
+func siteLinkButtons(sites []model.Site, withBack bool) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+	var row []tgbotapi.InlineKeyboardButton
+
+	for _, site := range sites {
+		link := strings.TrimSpace(site.LinkURL())
+		if !isHTTPURL(link) {
+			continue
+		}
+		// Telegram button text limit is 64 chars.
+		label := "💳 " + site.Name
+		if len([]rune(label)) > 64 {
+			runes := []rune(site.Name)
+			if len(runes) > 60 {
+				runes = runes[:60]
+			}
+			label = "💳 " + string(runes)
+		}
+		row = append(row, tgbotapi.NewInlineKeyboardButtonURL(label, link))
+		if len(row) == 2 {
+			rows = append(rows, row)
+			row = nil
+		}
+	}
+	if len(row) > 0 {
+		rows = append(rows, row)
+	}
+	if withBack {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 主菜单", "start"),
+		))
+	}
+	if len(rows) == 0 {
+		return tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔙 主菜单", "start"),
+			),
+		)
+	}
+	return tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 // handleCallback handles inline keyboard button presses.
@@ -131,6 +199,8 @@ func (b *Bot) handleCallback(cq *tgbotapi.CallbackQuery) {
 		b.sendStart(chatID)
 	case "balance":
 		b.doBalance(chatID)
+	case "topup":
+		b.doTopup(chatID)
 	case "refresh":
 		b.doRefresh(chatID)
 	case "status":
@@ -148,6 +218,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 			b.sendStart(chatID)
 		case "balance":
 			b.doBalance(chatID)
+		case "topup":
+			b.doTopup(chatID)
 		case "refresh":
 			b.doRefresh(chatID)
 		case "status":
@@ -180,6 +252,37 @@ func (b *Bot) sendStart(chatID int64) {
 	text := "👋 欢迎使用上游渠道额度监控\n\n👇 请选择操作："
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ReplyMarkup = mainMenuKeyboard()
+	b.api.Send(msg)
+}
+
+func (b *Bot) doTopup(chatID int64) {
+	allSites, err := b.sites.List()
+	if err != nil {
+		b.sendText(chatID, fmt.Sprintf("❌ 获取站点列表失败: %v", err))
+		return
+	}
+	if len(allSites) == 0 {
+		b.sendText(chatID, "📭 当前没有配置任何站点")
+		return
+	}
+
+	linked := 0
+	for _, s := range allSites {
+		if isHTTPURL(s.LinkURL()) {
+			linked++
+		}
+	}
+	if linked == 0 {
+		text := "📭 暂无可用链接。\n请在 Web 面板为站点填写「接口地址」或「充值/控制台链接」。"
+		msg := tgbotapi.NewMessage(chatID, text)
+		msg.ReplyMarkup = backMenuKeyboard()
+		b.api.Send(msg)
+		return
+	}
+
+	text := "💳 点击下方按钮，直接打开对应站点充值/控制台：\n（未单独配置充值链接时，使用接口地址）"
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ReplyMarkup = siteLinkButtons(allSites, true)
 	b.api.Send(msg)
 }
 
@@ -232,9 +335,21 @@ func (b *Bot) doBalance(chatID int64) {
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("总计: %d 正常 / %d 告警 / %d 异常", okCount, warnCount, errCount))
 	lines = append(lines, fmt.Sprintf("查询时间: %s", now))
+	lines = append(lines, "")
+	lines = append(lines, "👇 需要充值时，点下方站点按钮直达：")
+
+	// Prefer url buttons for each site; also keep back/refresh actions.
+	kb := siteLinkButtons(allSites, false)
+	// Append action row onto existing keyboard.
+	kb.InlineKeyboard = append(kb.InlineKeyboard,
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔄 刷新余额", "refresh"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 主菜单", "start"),
+		),
+	)
 
 	msg := tgbotapi.NewMessage(chatID, strings.Join(lines, "\n"))
-	msg.ReplyMarkup = backMenuKeyboard()
+	msg.ReplyMarkup = kb
 	b.api.Send(msg)
 }
 
@@ -323,15 +438,18 @@ func (b *Bot) doHelp(chatID int64) {
 	text := `🤖 UpstreamBalance Bot
 
 可用命令:
-/balance - 查询所有站点余额
-/balance <名称> - 查询指定站点余额
+/balance - 查询所有站点余额（结果带充值按钮）
+/topup - 打开各站点充值/控制台
 /refresh - 刷新所有站点余额
 /status - 查看系统运行状态
-/help - 显示此帮助信息`
+/help - 显示此帮助信息
+
+提示: 在 Web 面板可为站点单独填写「充值/控制台链接」；留空则使用接口地址。`
 
 	reply := tgbotapi.NewMessage(chatID, text)
 	reply.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 去充值", "topup"),
 			tgbotapi.NewInlineKeyboardButtonData("🔙 主菜单", "start"),
 		),
 	)

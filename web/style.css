@@ -8,7 +8,7 @@ header h1 { font-size: 1.5rem; font-weight: 700; }
 .stat-card .value { font-size: 1.8rem; font-weight: 700; color: #0f172a; }
 .stat-card .label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
 .toolbar { display: flex; justify-content: space-between; margin-bottom: 16px; gap: 8px; flex-wrap: wrap; }
-.btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: opacity 0.2s; }
+.btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: opacity 0.2s; text-decoration: none; display: inline-block; line-height: 1.2; }
 .btn:hover { opacity: 0.85; }
 .btn-primary { background: #3b82f6; color: #fff; }
 .btn-secondary { background: #e2e8f0; color: #334155; }

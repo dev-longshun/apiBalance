@@ -171,7 +171,7 @@ func (s *Scheduler) pollAll() {
 					s.thresholds.SetTriggered(t.ID, true)
 					if tg != nil && tg.IsConfigured() {
 						checkTime := model.Now()
-						if err := tg.SendAlert(site.Name, result.Balance, t.Amount, checkTime); err != nil {
+						if err := tg.SendAlert(site.Name, result.Balance, t.Amount, checkTime, site.LinkURL()); err != nil {
 							log.Printf("[scheduler] failed to send alert for site %s: %v", site.Name, err)
 						}
 					}

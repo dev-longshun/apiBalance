@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -62,6 +63,7 @@ func (h *SiteHandler) Create(c *gin.Context) {
 		ID:        uuid.New().String(),
 		Name:      req.Name,
 		BaseURL:   req.BaseURL,
+		PortalURL: strings.TrimSpace(req.PortalURL),
 		APIKey:    req.APIKey,
 		Username:  req.Username,
 		Password:  req.Password,
@@ -140,6 +142,11 @@ func (h *SiteHandler) Update(c *gin.Context) {
 		updates["base_url"] = *req.BaseURL
 		site.BaseURL = *req.BaseURL
 		clearDetected = true
+	}
+	if req.PortalURL != nil {
+		portal := strings.TrimSpace(*req.PortalURL)
+		updates["portal_url"] = portal
+		site.PortalURL = portal
 	}
 	if req.APIKey != nil {
 		updates["api_key"] = *req.APIKey

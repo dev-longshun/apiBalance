@@ -85,6 +85,11 @@ function renderSites() {
     const errInfo = s.last_error ? `<br><span style="color:#ef4444;font-size:0.8rem">${s.last_error.substring(0, 60)}</span>` : '';
     const timeISO = s.last_check_at || '';
 
+    const link = (s.portal_url || s.base_url || '').trim();
+    const openBtn = link
+      ? `<a class="btn btn-secondary btn-sm" href="${esc(link)}" target="_blank" rel="noopener noreferrer">打开</a>`
+      : '';
+
     return `<div class="site-card">
       <div class="site-info">
         <div class="site-name">${statusDot(s.status)} ${esc(s.name)} ${lowBadge}</div>
@@ -92,6 +97,7 @@ function renderSites() {
       </div>
       <div class="site-balance">${balText}</div>
       <div class="site-actions">
+        ${openBtn}
         <button class="btn btn-secondary btn-sm" onclick="checkSite('${s.id}')">查询</button>
         <button class="btn btn-secondary btn-sm" onclick="showEditModal('${s.id}')">编辑</button>
         <button class="btn btn-danger btn-sm" onclick="deleteSite('${s.id}','${esc(s.name)}')">删除</button>
@@ -132,6 +138,7 @@ function showAddModal() {
   document.getElementById('edit-id').value = '';
   document.getElementById('f-name').value = '';
   document.getElementById('f-url').value = '';
+  document.getElementById('f-portal').value = '';
   document.getElementById('f-username').value = '';
   document.getElementById('f-password').value = '';
   document.getElementById('f-password').placeholder = '留空则使用 API Key 查询';
@@ -150,6 +157,7 @@ function showEditModal(id) {
   document.getElementById('edit-id').value = id;
   document.getElementById('f-name').value = s.name;
   document.getElementById('f-url').value = s.base_url;
+  document.getElementById('f-portal').value = s.portal_url || '';
   document.getElementById('f-username').value = s.username || '';
   document.getElementById('f-password').value = '';
   document.getElementById('f-password').placeholder = s.username ? '已配置（留空保持不变）' : '留空则使用 API Key 查询';
@@ -175,6 +183,7 @@ async function submitSite() {
   const id = document.getElementById('edit-id').value;
   const name = document.getElementById('f-name').value.trim();
   const url = document.getElementById('f-url').value.trim();
+  const portal = document.getElementById('f-portal').value.trim();
   const username = document.getElementById('f-username').value.trim();
   const password = document.getElementById('f-password').value;
   const userid = document.getElementById('f-userid').value.trim();
@@ -186,7 +195,7 @@ async function submitSite() {
 
   try {
     if (id) {
-      const body = { name, base_url: url, auth_type: auth, thresholds };
+      const body = { name, base_url: url, portal_url: portal, auth_type: auth, thresholds };
       if (key) body.api_key = key;
       if (username) body.username = username;
       if (password) body.password = password;
@@ -195,7 +204,7 @@ async function submitSite() {
       toast('站点已更新');
     } else {
       if (!username && !key) return toast('用户名密码 或 API Key 至少填一项', 'error');
-      const body = { name, base_url: url, auth_type: auth, thresholds };
+      const body = { name, base_url: url, portal_url: portal, auth_type: auth, thresholds };
       if (key) body.api_key = key;
       if (username) body.username = username;
       if (password) body.password = password;

@@ -6,6 +6,7 @@ type Site struct {
 	ID           string    `json:"id"`
 	Name         string    `json:"name"`
 	BaseURL      string    `json:"base_url"`
+	PortalURL    string    `json:"portal_url"` // 充值/控制台链接；空则 Bot 回退用 base_url
 	APIKey       string    `json:"api_key,omitempty"`
 	APIKeyMasked string    `json:"api_key_masked,omitempty"`
 	Username     string    `json:"username,omitempty"`
@@ -21,6 +22,15 @@ type Site struct {
 	Thresholds   []float64 `json:"thresholds"`
 	CreatedAt    string    `json:"created_at"`
 	UpdatedAt    string    `json:"updated_at"`
+}
+
+// LinkURL returns the URL used for "open / top-up" buttons.
+// Prefer portal_url; fall back to base_url so existing sites work without re-edit.
+func (s *Site) LinkURL() string {
+	if s.PortalURL != "" {
+		return s.PortalURL
+	}
+	return s.BaseURL
 }
 
 func (s *Site) MaskSecrets() {
@@ -56,6 +66,7 @@ type AlertSent struct {
 type SiteCreateRequest struct {
 	Name       string    `json:"name" binding:"required"`
 	BaseURL    string    `json:"base_url" binding:"required"`
+	PortalURL  string    `json:"portal_url"`
 	APIKey     string    `json:"api_key"`
 	Username   string    `json:"username"`
 	Password   string    `json:"password"`
@@ -67,6 +78,7 @@ type SiteCreateRequest struct {
 type SiteUpdateRequest struct {
 	Name       *string    `json:"name"`
 	BaseURL    *string    `json:"base_url"`
+	PortalURL  *string    `json:"portal_url"`
 	APIKey     *string    `json:"api_key"`
 	Username   *string    `json:"username"`
 	Password   *string    `json:"password"`
