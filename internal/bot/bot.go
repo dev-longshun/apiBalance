@@ -287,7 +287,18 @@ func (b *Bot) doTopup(chatID int64) {
 }
 
 func (b *Bot) doBalance(chatID int64) {
-	b.sendText(chatID, "⏳ 正在查询所有站点余额...")
+	// 查询与「刷新」同一套：实时拉余额 + 展示额度总览 + 充值按钮
+	b.showBalanceOverview(chatID, "⏳ 正在查询所有站点余额...")
+}
+
+func (b *Bot) doRefresh(chatID int64) {
+	// 用户期望：点「刷新余额」后仍看到完整额度总览，而不是一句「刷新完成」
+	b.showBalanceOverview(chatID, "⏳ 正在刷新所有站点余额...")
+}
+
+// showBalanceOverview 实时查询所有站点，写回缓存，并发送带充值按钮的额度总览。
+func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
+	b.sendText(chatID, progressText)
 
 	allSites, err := b.sites.List()
 	if err != nil {
@@ -310,6 +321,11 @@ func (b *Bot) doBalance(chatID int64) {
 		if cr == nil || cr.Error != "" {
 			lines = append(lines, fmt.Sprintf("🔴 %-16s 查询失败", site.Name))
 			errCount++
+			errMsg := "check failed"
+			if cr != nil && cr.Error != "" {
+				errMsg = cr.Error
+			}
+			_ = b.sites.UpdateBalance(site.ID, site.Balance, site.BalanceUnit, site.DetectedType, "error", errMsg)
 			continue
 		}
 
@@ -322,13 +338,16 @@ func (b *Bot) doBalance(chatID int64) {
 			}
 		}
 
+		status := "ok"
 		if belowThreshold {
+			status = "low"
 			lines = append(lines, fmt.Sprintf("🟡 %-16s $%.2f  ⚠️", site.Name, cr.Balance))
 			warnCount++
 		} else {
 			lines = append(lines, fmt.Sprintf("🟢 %-16s $%.2f", site.Name, cr.Balance))
 			okCount++
 		}
+		_ = b.sites.UpdateBalance(site.ID, cr.Balance, cr.Unit, cr.DetectedType, status, "")
 	}
 
 	now := time.Now().Format("2006-01-02 15:04:05")
@@ -338,9 +357,7 @@ func (b *Bot) doBalance(chatID int64) {
 	lines = append(lines, "")
 	lines = append(lines, "👇 需要充值时，点下方站点按钮直达：")
 
-	// Prefer url buttons for each site; also keep back/refresh actions.
 	kb := siteLinkButtons(allSites, false)
-	// Append action row onto existing keyboard.
 	kb.InlineKeyboard = append(kb.InlineKeyboard,
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🔄 刷新余额", "refresh"),
@@ -351,44 +368,6 @@ func (b *Bot) doBalance(chatID int64) {
 	msg := tgbotapi.NewMessage(chatID, strings.Join(lines, "\n"))
 	msg.ReplyMarkup = kb
 	b.api.Send(msg)
-}
-
-func (b *Bot) doRefresh(chatID int64) {
-	b.sendText(chatID, "⏳ 正在刷新所有站点余额...")
-
-	allSites, err := b.sites.List()
-	if err != nil {
-		b.sendText(chatID, fmt.Sprintf("❌ 获取站点列表失败: %v", err))
-		return
-	}
-	if len(allSites) == 0 {
-		b.sendText(chatID, "📭 当前没有配置任何站点")
-		return
-	}
-
-	results := b.checker.CheckWithConcurrency(allSites, 5)
-
-	okCount, errCount := 0, 0
-	for _, site := range allSites {
-		cr := results[site.ID]
-		if cr == nil || cr.Error != "" {
-			errCount++
-			errMsg := "check failed"
-			if cr != nil {
-				errMsg = cr.Error
-			}
-			_ = b.sites.UpdateBalance(site.ID, site.Balance, site.BalanceUnit, site.DetectedType, "error", errMsg)
-			continue
-		}
-		okCount++
-		_ = b.sites.UpdateBalance(site.ID, cr.Balance, cr.Unit, cr.DetectedType, "ok", "")
-	}
-
-	now := time.Now().Format("2006-01-02 15:04:05")
-	text := fmt.Sprintf("✅ 刷新完成\n\n成功: %d\n失败: %d\n时间: %s", okCount, errCount, now)
-	reply := tgbotapi.NewMessage(chatID, text)
-	reply.ReplyMarkup = backMenuKeyboard()
-	b.api.Send(reply)
 }
 
 func (b *Bot) doStatus(chatID int64) {
@@ -438,9 +417,9 @@ func (b *Bot) doHelp(chatID int64) {
 	text := `🤖 UpstreamBalance Bot
 
 可用命令:
-/balance - 查询所有站点余额（结果带充值按钮）
+/balance - 查询所有站点余额（额度总览 + 充值按钮）
 /topup - 打开各站点充值/控制台
-/refresh - 刷新所有站点余额
+/refresh - 重新查询并再次展示额度总览
 /status - 查看系统运行状态
 /help - 显示此帮助信息
 
