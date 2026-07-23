@@ -34,6 +34,13 @@ func New(token string, chatIDs []int64, chk *checker.Checker, sites *store.SiteS
 		return nil, fmt.Errorf("create bot api: %w", err)
 	}
 
+	// Long-polling cannot run while a webhook is active. Clear any leftover
+	// webhook (e.g. set by another service reusing this bot token) so
+	// getUpdates works. Do not drop pending updates.
+	if _, err := api.Request(tgbotapi.DeleteWebhookConfig{DropPendingUpdates: false}); err != nil {
+		return nil, fmt.Errorf("delete webhook before polling: %w", err)
+	}
+
 	idSet := make(map[int64]bool, len(chatIDs))
 	for _, id := range chatIDs {
 		idSet[id] = true

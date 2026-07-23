@@ -125,4 +125,5 @@ admin:
 ### 注意事项
 - 获取 chat ID 时必须先停掉容器，否则 bot 长轮询会消费掉 getUpdates
 - 同一个 bot token 不能同时在多处运行（会 409 冲突）
+- **Webhook 与长轮询互斥**：本服务用 `getUpdates` 长轮询。若 Bot 被设置了 webhook（例如其它服务/脚本调用了 `setWebhook`），按钮和命令会全部无响应，但主动告警（`sendMessage`）仍可发出。容器日志会出现 `Conflict: can't use getUpdates method while webhook is active`。处理：`deleteWebhook`，或重启本服务（启动时会自动 `deleteWebhook`）。
 - 群聊 Chat ID 是负数（如 `-5136261675`）
