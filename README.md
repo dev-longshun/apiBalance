@@ -66,8 +66,10 @@ cd /root/upstream-balance && git pull && docker compose up -d --build
 | SSH 密钥 | `aws-hk/codex-aws-hk-ed25519` |
 | 部署路径 | `/root/apiBalance/` |
 | 部署方式 | GHCR 镜像 `ghcr.io/dev-longshun/apibalance:latest` |
-| 端口 | 0.0.0.0:8088 → 8080 |
-| 域名 | 无（直接 IP:8088 访问） |
+| 端口 | 127.0.0.1:8088 → Nginx 反代（**不对公网开放**） |
+| 域名 | **https://upstream.longjinapi.com** |
+| SSL 证书 | Let's Encrypt，到期 2026-09-07，自动续期 |
+| Nginx 配置 | `/etc/nginx/sites-enabled/upstream.longjinapi.com` |
 | 数据库 | `./data/quota-sentinel.db`（历史路径） |
 | Telegram Bot | `@longjinapi_bot` |
 | Bot Token | 见服务器 `config.yaml` / `settings` 表（**不记录在此**） |
@@ -136,5 +138,6 @@ admin:
   3. 新 token 写入 config.yaml **和** DB `settings` 表，重启容器；
   4. 排查泄露源（public 仓库、日志、截图），并轮换同处暴露的其它凭据。
 
-  2026-07-29 实例：两个 Bot 的 token 因 README 明文公开（仓库 public，2026-06-09 推送），被第三方设置 webhook 到 `ssh.inkognit.org:8443` 并改名为 "CHUPEP"，群内所有消息和按钮点击都被转发出去。已换 token 处理。
+  2026-07-29 实例：两个 Bot 的 token 因 README 明文公开（仓库 public，2026-06-09 推送），被第三方设置 webhook 到 `ssh.inkognit.org:8443`（82.131.65.219）、改名为 "CHUPEP"、简介改成加密货币推广广告（`@DCrypto_seller`），群内所有消息和按钮点击都被转发出去。处置：revoke 换 token → 写入 config.yaml + DB → 重启 → `setMyName` / `setMyDescription` 改回 → 清理 README 明文。
+- **被劫持后别忘了改回 Bot 资料**：`setMyName` / `setMyDescription` / `setMyShortDescription` 都能用 token 改，换 token 不会自动还原。`setMyCommands` 由本服务启动时重新注册，无需手动处理。
 - 群聊 Chat ID 是负数（如 `-5136261675`）
