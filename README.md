@@ -27,6 +27,10 @@ web/              # 前端静态文件（embed 进二进制）
 
 ## 部署实例
 
+> ⚠️ **本仓库是 public**。Bot token、管理员密码、站点凭据一律不要写进 README 或任何被 git 跟踪的文件——
+> 只放在 `config.yaml`（已 gitignore）和 SQLite `settings` 表里，文档中只写「在哪里」不写值。
+> 2026-07-29 曾因 README 明文 token 泄露导致两个 Bot 被第三方 `setWebhook` 劫持，详见「注意事项」。
+
 ### 1. DMIT 香港（shan-dmit-hk）
 
 | 项目 | 值 |
@@ -42,10 +46,10 @@ web/              # 前端静态文件（embed 进二进制）
 | Nginx 配置 | `/etc/nginx/sites-enabled/upstream-balance` |
 | 数据库 | `./data/upstream-balance.db` |
 | Telegram Bot | `@relayupstreambalance_bot` |
-| Bot Token | `8819518961:AAEWCMlEWKUO7cnzIC8oKtu2WbjkL2k5rYM` |
+| Bot Token | 见服务器 `config.yaml` / `settings` 表（**不记录在此**） |
 | 群聊名称 | 上游渠道余额监控 |
 | 群聊 Chat ID | `-5136261675` |
-| 管理员账号 | `dashanshan` / `dashanshancode` |
+| 管理员账号 | `dashanshan` / 密码见服务器 `config.yaml`（**不记录在此**） |
 
 **更新流程：**
 ```bash
@@ -66,10 +70,10 @@ cd /root/upstream-balance && git pull && docker compose up -d --build
 | 域名 | 无（直接 IP:8088 访问） |
 | 数据库 | `./data/quota-sentinel.db`（历史路径） |
 | Telegram Bot | `@longjinapi_bot` |
-| Bot Token | `8886371526:AAE9VAMEU7vv6lOVasL2Cvu4vvUMdDXlw78` |
+| Bot Token | 见服务器 `config.yaml` / `settings` 表（**不记录在此**） |
 | 群聊名称 | longjin 站点 |
 | 群聊 Chat ID | `-5199032066` |
-| 管理员账号 | `dashanshan` / `dashanshancode` |
+| 管理员账号 | `dashanshan` / 密码见服务器 `config.yaml`（**不记录在此**） |
 
 **更新流程：**
 ```bash
@@ -126,4 +130,11 @@ admin:
 - 获取 chat ID 时必须先停掉容器，否则 bot 长轮询会消费掉 getUpdates
 - 同一个 bot token 不能同时在多处运行（会 409 冲突）
 - **Webhook 与长轮询互斥**：本服务用 `getUpdates` 长轮询。若 Bot 被设置了 webhook（例如其它服务/脚本调用了 `setWebhook`），按钮和命令会全部无响应，但主动告警（`sendMessage`）仍可发出。容器日志会出现 `Conflict: can't use getUpdates method while webhook is active`。处理：`deleteWebhook`，或重启本服务（启动时会自动 `deleteWebhook`）。
+- **如果日志出现 `Conflict: terminated by setWebhook request`，那是 token 泄露，不是配置问题**。本服务从不调用 `setWebhook`，这行日志意味着别人拿着你的 token 在操作。此时 `deleteWebhook` 只能顶几分钟——对方还持有 token，会再设回来。正确处理：
+  1. `getWebhookInfo` 看 webhook 指向哪里，`getMe` 看名字有没有被改（被改名 = 对方确实握有 token）；
+  2. BotFather → `/revoke` 换新 token，老 token 立即失效、webhook 一并消失；
+  3. 新 token 写入 config.yaml **和** DB `settings` 表，重启容器；
+  4. 排查泄露源（public 仓库、日志、截图），并轮换同处暴露的其它凭据。
+
+  2026-07-29 实例：两个 Bot 的 token 因 README 明文公开（仓库 public，2026-06-09 推送），被第三方设置 webhook 到 `ssh.inkognit.org:8443` 并改名为 "CHUPEP"，群内所有消息和按钮点击都被转发出去。已换 token 处理。
 - 群聊 Chat ID 是负数（如 `-5136261675`）
