@@ -34,11 +34,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	adminUser, _ := h.settings.Get("admin_username")
 	adminPwd, _ := h.settings.Get("admin_password")
 
+	// 首尾空白不参与比对：粘贴凭据常带尾随空格或换行。
+	// 存储侧一并 trim，避免 config.yaml 里误带空格把自己锁在门外。
+	adminUser = strings.TrimSpace(adminUser)
+	adminPwd = strings.TrimSpace(adminPwd)
+	reqUser := strings.TrimSpace(req.Username)
+	reqPwd := strings.TrimSpace(req.Password)
+
 	if adminPwd == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未配置管理员密码"})
 		return
 	}
-	if (adminUser != "" && req.Username != adminUser) || req.Password != adminPwd {
+	if (adminUser != "" && reqUser != adminUser) || reqPwd != adminPwd {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
 		return
 	}

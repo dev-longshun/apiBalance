@@ -295,9 +295,17 @@ async function testTelegram() {
   }
 }
 
+function setLoginError(msg) {
+  const el = document.getElementById('login-error');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.display = msg ? '' : 'none';
+}
+
 function showLogin() {
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('btn-logout').style.display = 'none';
+  setLoginError('');
 }
 
 function hideLogin() {
@@ -306,9 +314,11 @@ function hideLogin() {
 }
 
 async function doLogin() {
-  const username = document.getElementById('login-username').value;
-  const pwd = document.getElementById('login-password').value;
-  if (!pwd) return;
+  // 剔除首尾空白：粘贴密码时常带尾随空格，后端是全等比对，会直接 401
+  const username = document.getElementById('login-username').value.trim();
+  const pwd = document.getElementById('login-password').value.trim();
+  if (!pwd) { setLoginError('请输入密码'); return; }
+  setLoginError('');
   try {
     const res = await fetch(API + '/login', {
       method: 'POST',
@@ -316,13 +326,20 @@ async function doLogin() {
       body: JSON.stringify({ username, password: pwd }),
     });
     const data = await res.json();
-    if (!res.ok) { toast(data.error || '登录失败', 'error'); return; }
+    if (!res.ok) {
+      const msg = data.error || '登录失败';
+      setLoginError(msg);
+      toast(msg, 'error');
+      return;
+    }
     localStorage.setItem('auth_token', data.token);
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
+    setLoginError('');
     hideLogin();
     loadSites();
   } catch (e) {
+    setLoginError('网络错误，登录失败');
     toast('登录失败', 'error');
   }
 }
