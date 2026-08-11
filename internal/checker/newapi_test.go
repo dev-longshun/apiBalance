@@ -120,3 +120,46 @@ func TestSiteMaskSecretsHidesAccessToken(t *testing.T) {
 		t.Errorf("AccessTokenMasked = %q, want abc123***", s.AccessTokenMasked)
 	}
 }
+
+// Regression: several production sites are sub2api upstreams that also carry
+// leftover NewAPI username/password. The NewAPI prober fails on them and the
+// sub2api fallback must still run — restricting such sites to NewAPI alone
+// flipped four live sites to "error" (2026-08-11).
+func TestSub2APISiteWithLeftoverPanelCredentials(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/usage" {
+			json.NewEncoder(w).Encode(map[string]any{"balance": 121.64})
+			return
+		}
+		// NewAPI endpoints answer with something that is not NewAPI's shape.
+		http.Error(w, "<html>not found</html>", http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	res := New().Check(&model.Site{
+		BaseURL:  srv.URL,
+		Username: "admin",
+		Password: "pw",
+		APIKey:   "sk-test",
+	})
+	if res.Error != "" {
+		t.Fatalf("unexpected error: %s", res.Error)
+	}
+	if res.DetectedType != "sub2api" || res.Balance != 121.64 {
+		t.Errorf("got %s / %v, want sub2api / 121.64", res.DetectedType, res.Balance)
+	}
+}
+
+// When nothing answers, a site with panel credentials must report the NewAPI
+// failure rather than the API-key probers' HTTP noise.
+func TestPanelCredentialErrorWinsOverAPIKeyProbers(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "nope", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	res := New().Check(&model.Site{BaseURL: srv.URL, Username: "admin", Password: "pw", APIKey: "sk-test"})
+	if !strings.HasPrefix(res.Error, "newapi_token:") {
+		t.Errorf("error = %q, want the newapi_token failure", res.Error)
+	}
+}
