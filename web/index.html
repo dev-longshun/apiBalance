@@ -57,19 +57,23 @@
         <input type="text" id="f-portal" placeholder="留空则使用接口地址，如 https://xxx.com/topup">
       </div>
       <div class="form-group">
-        <label>用户名（NewAPI 登录查询）</label>
-        <input type="text" id="f-username" placeholder="留空则使用 API Key 查询">
+        <label>访问令牌（NewAPI 首选：面板「个人设置 → 系统访问令牌」）</label>
+        <input type="password" id="f-token" placeholder="填了它就不用存面板密码">
+      </div>
+      <div class="form-group">
+        <label>用户名（NewAPI 登录查询，无访问令牌时使用）</label>
+        <input type="text" id="f-username" placeholder="留空则使用访问令牌 / API Key 查询">
       </div>
       <div class="form-group">
         <label>密码</label>
-        <input type="password" id="f-password" placeholder="留空则使用 API Key 查询">
+        <input type="password" id="f-password" placeholder="留空则使用访问令牌 / API Key 查询">
       </div>
       <div class="form-group">
-        <label>User ID（可选，留空自动获取）</label>
+        <label>User ID（访问令牌模式必填；用户名密码模式可留空自动获取）</label>
         <input type="text" id="f-userid" placeholder="0">
       </div>
       <div class="form-group">
-        <label>API Key（无用户名密码时使用）</label>
+        <label>API Key（无访问令牌 / 用户名密码时使用）</label>
         <input type="text" id="f-key" placeholder="sk-xxxxxxxx">
       </div>
       <div class="form-group">

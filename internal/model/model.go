@@ -3,25 +3,29 @@ package model
 import "time"
 
 type Site struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	BaseURL      string    `json:"base_url"`
-	PortalURL    string    `json:"portal_url"` // 充值/控制台链接；空则 Bot 回退用 base_url
-	APIKey       string    `json:"api_key,omitempty"`
-	APIKeyMasked string    `json:"api_key_masked,omitempty"`
-	Username     string    `json:"username,omitempty"`
-	Password     string    `json:"password,omitempty"`
-	UserID       int       `json:"user_id"`
-	AuthType     string    `json:"auth_type"`
-	Balance      float64   `json:"balance"`
-	BalanceUnit  string    `json:"balance_unit"`
-	DetectedType string    `json:"detected_type"`
-	LastCheckAt  string    `json:"last_check_at"`
-	LastError    string    `json:"last_error"`
-	Status       string    `json:"status"`
-	Thresholds   []float64 `json:"thresholds"`
-	CreatedAt    string    `json:"created_at"`
-	UpdatedAt    string    `json:"updated_at"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	BaseURL      string `json:"base_url"`
+	PortalURL    string `json:"portal_url"` // 充值/控制台链接；空则 Bot 回退用 base_url
+	APIKey       string `json:"api_key,omitempty"`
+	APIKeyMasked string `json:"api_key_masked,omitempty"`
+	// AccessToken 是 NewAPI「个人设置 → 系统访问令牌」，配合 UserID 直接查 /api/user/self，
+	// 不需要保存面板密码，也不会被登录验证码 / 2FA 挡住。
+	AccessToken       string    `json:"access_token,omitempty"`
+	AccessTokenMasked string    `json:"access_token_masked,omitempty"`
+	Username          string    `json:"username,omitempty"`
+	Password          string    `json:"password,omitempty"`
+	UserID            int       `json:"user_id"`
+	AuthType          string    `json:"auth_type"`
+	Balance           float64   `json:"balance"`
+	BalanceUnit       string    `json:"balance_unit"`
+	DetectedType      string    `json:"detected_type"`
+	LastCheckAt       string    `json:"last_check_at"`
+	LastError         string    `json:"last_error"`
+	Status            string    `json:"status"`
+	Thresholds        []float64 `json:"thresholds"`
+	CreatedAt         string    `json:"created_at"`
+	UpdatedAt         string    `json:"updated_at"`
 }
 
 // LinkURL returns the URL used for "open / top-up" buttons.
@@ -39,7 +43,13 @@ func (s *Site) MaskSecrets() {
 	} else if s.APIKey != "" {
 		s.APIKeyMasked = "***"
 	}
+	if len(s.AccessToken) > 6 {
+		s.AccessTokenMasked = s.AccessToken[:6] + "***"
+	} else if s.AccessToken != "" {
+		s.AccessTokenMasked = "***"
+	}
 	s.APIKey = ""
+	s.AccessToken = ""
 	s.Password = ""
 }
 
@@ -51,11 +61,11 @@ type Threshold struct {
 }
 
 type CheckResult struct {
-	Balance      float64           `json:"balance"`
-	Unit         string            `json:"unit"`
-	DetectedType string            `json:"detected_type"`
+	Balance      float64            `json:"balance"`
+	Unit         string             `json:"unit"`
+	DetectedType string             `json:"detected_type"`
 	Extra        map[string]float64 `json:"extra,omitempty"`
-	Error        string            `json:"error,omitempty"`
+	Error        string             `json:"error,omitempty"`
 }
 
 type AlertSent struct {
@@ -64,27 +74,29 @@ type AlertSent struct {
 }
 
 type SiteCreateRequest struct {
-	Name       string    `json:"name" binding:"required"`
-	BaseURL    string    `json:"base_url" binding:"required"`
-	PortalURL  string    `json:"portal_url"`
-	APIKey     string    `json:"api_key"`
-	Username   string    `json:"username"`
-	Password   string    `json:"password"`
-	UserID     int       `json:"user_id"`
-	AuthType   string    `json:"auth_type"`
-	Thresholds []float64 `json:"thresholds"`
+	Name        string    `json:"name" binding:"required"`
+	BaseURL     string    `json:"base_url" binding:"required"`
+	PortalURL   string    `json:"portal_url"`
+	APIKey      string    `json:"api_key"`
+	AccessToken string    `json:"access_token"`
+	Username    string    `json:"username"`
+	Password    string    `json:"password"`
+	UserID      int       `json:"user_id"`
+	AuthType    string    `json:"auth_type"`
+	Thresholds  []float64 `json:"thresholds"`
 }
 
 type SiteUpdateRequest struct {
-	Name       *string    `json:"name"`
-	BaseURL    *string    `json:"base_url"`
-	PortalURL  *string    `json:"portal_url"`
-	APIKey     *string    `json:"api_key"`
-	Username   *string    `json:"username"`
-	Password   *string    `json:"password"`
-	UserID     *int       `json:"user_id"`
-	AuthType   *string    `json:"auth_type"`
-	Thresholds *[]float64 `json:"thresholds"`
+	Name        *string    `json:"name"`
+	BaseURL     *string    `json:"base_url"`
+	PortalURL   *string    `json:"portal_url"`
+	APIKey      *string    `json:"api_key"`
+	AccessToken *string    `json:"access_token"`
+	Username    *string    `json:"username"`
+	Password    *string    `json:"password"`
+	UserID      *int       `json:"user_id"`
+	AuthType    *string    `json:"auth_type"`
+	Thresholds  *[]float64 `json:"thresholds"`
 }
 
 type SettingsResponse struct {

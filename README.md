@@ -89,6 +89,28 @@ cd /root/apiBalance && docker compose pull && docker compose up -d
 - **流程**：`.github/workflows/docker.yml` → 构建 Docker 镜像 → 推送到 `ghcr.io/dev-longshun/apibalance:latest`
 - DMIT 服务器本地构建（不依赖 GHCR），AWS 服务器拉 GHCR 镜像
 
+## 站点凭据（三种查询方式）
+
+添加站点时任选一种，程序按 **访问令牌 → 用户名密码 → API Key** 的顺序取用：
+
+| 方式 | 需要填 | 查询接口 | 说明 |
+|------|--------|----------|------|
+| **访问令牌（NewAPI 首选）** | 访问令牌 + User ID | `GET /api/user/self` | 面板「个人设置 → 系统访问令牌」生成；不用存面板密码，令牌可单独吊销，也不会被登录验证码 / 2FA / 登录频率限制挡住 |
+| 用户名密码 | 用户名 + 密码（User ID 留空自动获取） | `POST /api/user/login` 拿 session，再 `GET /api/user/self` | 上游开了 Turnstile 或 2FA 就会失败；密码明文存在本机 DB 里 |
+| API Key | `sk-` 开头的令牌 | `/api/usage/token/`、`/v1/usage`、`/v1/auth/me`、`/v1/dashboard/billing/*` | 拿到的是**单个令牌**的额度，不是账户余额 |
+
+**取 NewAPI 的访问令牌和 User ID：**
+
+1. 登录上游面板 → 个人设置（`/personal`）
+2. 「系统访问令牌」→ 生成并复制（约 32 位随机串，和 `sk-` 令牌不是一回事）
+3. User ID 取同页显示的用户 ID —— **必填**：NewAPI 会拿请求头 `New-Api-User` 和令牌属主比对，填错直接返回「用户 ID 不匹配」
+4. 在面板重新生成令牌会让旧令牌立即失效，记得回本面板更新
+
+额度换算：NewAPI 返回的 `quota` 是原始额度单位，除以 500000 得美元（对应 NewAPI 的 `QuotaPerUnit`）。
+
+> 凭据明文存在 SQLite `sites` 表（`access_token` / `password` / `api_key` 列），只随 `data/` 留在服务器上，不进 git。
+> Web API 返回时访问令牌和 API Key 只给前 6 位掩码，密码完全不回传。
+
 ## 配置说明
 
 `config.yaml` 挂载进容器（只读），首次启动会 seed 到 SQLite 的 `settings` 表。

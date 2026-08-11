@@ -60,18 +60,19 @@ func (h *SiteHandler) Create(c *gin.Context) {
 
 	now := model.Now()
 	site := &model.Site{
-		ID:        uuid.New().String(),
-		Name:      req.Name,
-		BaseURL:   req.BaseURL,
-		PortalURL: strings.TrimSpace(req.PortalURL),
-		APIKey:    req.APIKey,
-		Username:  req.Username,
-		Password:  req.Password,
-		UserID:    req.UserID,
-		AuthType:  req.AuthType,
-		Status:    "unknown",
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		BaseURL:     req.BaseURL,
+		PortalURL:   strings.TrimSpace(req.PortalURL),
+		APIKey:      req.APIKey,
+		AccessToken: strings.TrimSpace(req.AccessToken),
+		Username:    req.Username,
+		Password:    req.Password,
+		UserID:      req.UserID,
+		AuthType:    req.AuthType,
+		Status:      "unknown",
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	if err := h.sites.Create(site); err != nil {
@@ -151,6 +152,12 @@ func (h *SiteHandler) Update(c *gin.Context) {
 	if req.APIKey != nil {
 		updates["api_key"] = *req.APIKey
 		site.APIKey = *req.APIKey
+		clearDetected = true
+	}
+	if req.AccessToken != nil {
+		token := strings.TrimSpace(*req.AccessToken)
+		updates["access_token"] = token
+		site.AccessToken = token
 		clearDetected = true
 	}
 	if req.Username != nil {

@@ -139,9 +139,11 @@ function showAddModal() {
   document.getElementById('f-name').value = '';
   document.getElementById('f-url').value = '';
   document.getElementById('f-portal').value = '';
+  document.getElementById('f-token').value = '';
+  document.getElementById('f-token').placeholder = '填了它就不用存面板密码';
   document.getElementById('f-username').value = '';
   document.getElementById('f-password').value = '';
-  document.getElementById('f-password').placeholder = '留空则使用 API Key 查询';
+  document.getElementById('f-password').placeholder = '留空则使用访问令牌 / API Key 查询';
   document.getElementById('f-userid').value = '';
   document.getElementById('f-key').value = '';
   document.getElementById('f-key').placeholder = 'sk-xxxxxxxx';
@@ -158,9 +160,11 @@ function showEditModal(id) {
   document.getElementById('f-name').value = s.name;
   document.getElementById('f-url').value = s.base_url;
   document.getElementById('f-portal').value = s.portal_url || '';
+  document.getElementById('f-token').value = '';
+  document.getElementById('f-token').placeholder = s.access_token_masked ? '已配置：' + s.access_token_masked + '（留空保持不变）' : '填了它就不用存面板密码';
   document.getElementById('f-username').value = s.username || '';
   document.getElementById('f-password').value = '';
-  document.getElementById('f-password').placeholder = s.username ? '已配置（留空保持不变）' : '留空则使用 API Key 查询';
+  document.getElementById('f-password').placeholder = s.username ? '已配置（留空保持不变）' : '留空则使用访问令牌 / API Key 查询';
   document.getElementById('f-userid').value = s.user_id || '';
   document.getElementById('f-key').value = '';
   document.getElementById('f-key').placeholder = s.api_key_masked || '留空保持不变';
@@ -172,7 +176,8 @@ function showEditModal(id) {
 function closeModal() {
   document.getElementById('modal').style.display = 'none';
   document.getElementById('f-key').placeholder = 'sk-xxxxxxxx';
-  document.getElementById('f-password').placeholder = '留空则使用 API Key 查询';
+  document.getElementById('f-token').placeholder = '填了它就不用存面板密码';
+  document.getElementById('f-password').placeholder = '留空则使用访问令牌 / API Key 查询';
 }
 
 function parseThresholds(str) {
@@ -184,6 +189,7 @@ async function submitSite() {
   const name = document.getElementById('f-name').value.trim();
   const url = document.getElementById('f-url').value.trim();
   const portal = document.getElementById('f-portal').value.trim();
+  const token = document.getElementById('f-token').value.trim();
   const username = document.getElementById('f-username').value.trim();
   const password = document.getElementById('f-password').value;
   const userid = document.getElementById('f-userid').value.trim();
@@ -192,23 +198,20 @@ async function submitSite() {
   const thresholds = parseThresholds(document.getElementById('f-thresholds').value);
 
   if (!name || !url) return toast('名称和地址不能为空', 'error');
+  if (token && !userid) return toast('使用访问令牌时必须填写 User ID', 'error');
 
   try {
+    const body = { name, base_url: url, portal_url: portal, auth_type: auth, thresholds };
+    if (key) body.api_key = key;
+    if (token) body.access_token = token;
+    if (username) body.username = username;
+    if (password) body.password = password;
+    if (userid) body.user_id = parseInt(userid) || 0;
     if (id) {
-      const body = { name, base_url: url, portal_url: portal, auth_type: auth, thresholds };
-      if (key) body.api_key = key;
-      if (username) body.username = username;
-      if (password) body.password = password;
-      if (userid) body.user_id = parseInt(userid) || 0;
       await api('PUT', '/sites/' + id, body);
       toast('站点已更新');
     } else {
-      if (!username && !key) return toast('用户名密码 或 API Key 至少填一项', 'error');
-      const body = { name, base_url: url, portal_url: portal, auth_type: auth, thresholds };
-      if (key) body.api_key = key;
-      if (username) body.username = username;
-      if (password) body.password = password;
-      if (userid) body.user_id = parseInt(userid) || 0;
+      if (!token && !username && !key) return toast('访问令牌 / 用户名密码 / API Key 至少填一项', 'error');
       await api('POST', '/sites', body);
       toast('站点已添加');
     }

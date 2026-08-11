@@ -12,22 +12,52 @@ import (
 	"upstream-balance/internal/model"
 )
 
+// quotaPerUSD is NewAPI's QuotaPerUnit — raw quota units per US dollar.
+const quotaPerUSD = 500000.0
+
 // NewAPIProber implements the NewAPI/OneAPI balance query.
-// When username+password are configured, it logs in and queries /api/user/self
-// (the accurate user balance). Otherwise it falls back to the token-based
-// /api/usage/token/ endpoint.
+// Credentials are tried in order of preference:
+//  1. access token + user id — NewAPI "系统访问令牌", queries /api/user/self directly;
+//  2. username + password — logs in for a session cookie, then /api/user/self;
+//  3. api key — the legacy token-scoped /api/usage/token/ endpoint.
+//
+// The access token is preferred: no panel password is stored, it can be revoked
+// from the panel alone, and it side-steps the login flow entirely (which may be
+// gated by Turnstile or 2FA and is rate-limited).
 type NewAPIProber struct{}
 
 func (p *NewAPIProber) Name() string { return "newapi_token" }
 
 func (p *NewAPIProber) Probe(site *model.Site) (*Result, error) {
+	if site.AccessToken != "" {
+		return p.probeViaAccessToken(site)
+	}
 	if site.Username != "" && site.Password != "" {
 		return p.probeViaLogin(site)
 	}
 	if site.APIKey != "" {
 		return p.probeViaToken(site)
 	}
-	return nil, fmt.Errorf("no credentials configured (need username+password or api_key)")
+	return nil, fmt.Errorf("no credentials configured (need access_token+user_id, username+password, or api_key)")
+}
+
+// probeViaAccessToken queries /api/user/self with the panel access token.
+// NewAPI matches the token against the New-Api-User header, so user_id must be
+// configured; OneAPI-style panels accept the token alone, so the header is only
+// sent when a user id is set.
+func (p *NewAPIProber) probeViaAccessToken(site *model.Site) (*Result, error) {
+	baseURL := strings.TrimRight(site.BaseURL, "/")
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	quota, usedQuota, err := p.fetchUserSelf(client, baseURL, accessTokenAuth(site.AccessToken), site.UserID)
+	if err != nil {
+		if site.UserID <= 0 {
+			return nil, fmt.Errorf("fetch user/self failed: %w (NewAPI access token also needs User ID)", err)
+		}
+		return nil, fmt.Errorf("fetch user/self failed: %w", err)
+	}
+
+	return newAPIQuotaResult(quota, usedQuota), nil
 }
 
 // probeViaLogin authenticates with username/password, then queries /api/user/self.
@@ -54,23 +84,41 @@ func (p *NewAPIProber) probeViaLogin(site *model.Site) (*Result, error) {
 	}
 
 	// Step 3: Query /api/user/self
-	quota, usedQuota, err := p.fetchUserSelf(client, baseURL, sessionCookie, resolvedUserID)
+	quota, usedQuota, err := p.fetchUserSelf(client, baseURL, sessionAuth(sessionCookie), resolvedUserID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch user/self failed: %w", err)
 	}
 
-	balanceUSD := float64(quota) / 500000.0
+	return newAPIQuotaResult(quota, usedQuota), nil
+}
 
-	extra := map[string]float64{
-		"quota_raw":      float64(quota),
-		"used_quota_raw": float64(usedQuota),
-	}
-
+// newAPIQuotaResult converts raw NewAPI quota units into a USD balance.
+func newAPIQuotaResult(quota, usedQuota int64) *Result {
 	return &Result{
-		Balance: balanceUSD,
+		Balance: float64(quota) / quotaPerUSD,
 		Unit:    "USD",
-		Extra:   extra,
-	}, nil
+		Extra: map[string]float64{
+			"quota_raw":      float64(quota),
+			"used_quota_raw": float64(usedQuota),
+		},
+	}
+}
+
+// selfAuth applies one credential flavour to a /api/user/self request.
+type selfAuth func(req *http.Request)
+
+func sessionAuth(cookie string) selfAuth {
+	return func(req *http.Request) {
+		req.Header.Set("Cookie", fmt.Sprintf("session=%s", cookie))
+	}
+}
+
+// accessTokenAuth sends the raw access token; NewAPI strips an optional
+// "Bearer " prefix itself, so the bare value works on both NewAPI and OneAPI.
+func accessTokenAuth(token string) selfAuth {
+	return func(req *http.Request) {
+		req.Header.Set("Authorization", token)
+	}
 }
 
 func (p *NewAPIProber) login(client *http.Client, baseURL, username, password string) (string, int, error) {
@@ -121,13 +169,15 @@ func (p *NewAPIProber) login(client *http.Client, baseURL, username, password st
 	return sessionCookie, loginResp.Data.ID, nil
 }
 
-func (p *NewAPIProber) fetchUserSelf(client *http.Client, baseURL, sessionCookie string, userID int) (quota int64, usedQuota int64, err error) {
+func (p *NewAPIProber) fetchUserSelf(client *http.Client, baseURL string, auth selfAuth, userID int) (quota int64, usedQuota int64, err error) {
 	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/user/self", nil)
 	if err != nil {
 		return 0, 0, err
 	}
-	req.Header.Set("Cookie", fmt.Sprintf("session=%s", sessionCookie))
-	req.Header.Set("New-Api-User", fmt.Sprintf("%d", userID))
+	auth(req)
+	if userID > 0 {
+		req.Header.Set("New-Api-User", fmt.Sprintf("%d", userID))
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -192,7 +242,7 @@ func (p *NewAPIProber) probeViaToken(site *model.Site) (*Result, error) {
 		extra["total_used"] = used
 	}
 
-	balanceUSD := totalAvailable / 500000.0
+	balanceUSD := totalAvailable / quotaPerUSD
 
 	return &Result{
 		Balance: balanceUSD,

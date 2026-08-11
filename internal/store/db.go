@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS sites (
     base_url      TEXT NOT NULL,
     portal_url    TEXT NOT NULL DEFAULT '',
     api_key       TEXT NOT NULL DEFAULT '',
+    access_token  TEXT NOT NULL DEFAULT '',
     username      TEXT NOT NULL DEFAULT '',
     password      TEXT NOT NULL DEFAULT '',
     user_id       INTEGER NOT NULL DEFAULT 0,
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS settings (
 		{"password", "TEXT", "''"},
 		{"user_id", "INTEGER", "0"},
 		{"portal_url", "TEXT", "''"},
+		{"access_token", "TEXT", "''"},
 	} {
 		if !columnExists(db, "sites", col.name) {
 			_, err := db.Exec("ALTER TABLE sites ADD COLUMN " + col.name + " " + col.typ + " NOT NULL DEFAULT " + col.dflt)
