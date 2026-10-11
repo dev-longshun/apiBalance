@@ -109,8 +109,49 @@
         <label>Telegram Chat ID</label>
         <input type="text" id="set-chatid" placeholder="123456789">
       </div>
+
+      <h3 class="settings-section">邮件预警</h3>
+      <p class="form-hint">余额跌破阈值时，和 Telegram 同时发一封邮件，Telegram 没看到也不会漏。</p>
+      <div class="form-group">
+        <label class="checkbox-label"><input type="checkbox" id="set-email-enabled"> 启用邮件预警</label>
+      </div>
+      <div class="form-group">
+        <label>SMTP 服务器</label>
+        <input type="text" id="set-smtp-host" placeholder="smtp.qq.com">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>端口</label>
+          <input type="number" id="set-smtp-port" min="1" max="65535" placeholder="465">
+        </div>
+        <div class="form-group">
+          <label>加密方式</label>
+          <select id="set-smtp-security">
+            <option value="ssl">SSL（一般 465）</option>
+            <option value="starttls">STARTTLS（一般 587）</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>发件邮箱</label>
+        <input type="text" id="set-smtp-user" placeholder="you@qq.com">
+      </div>
+      <div class="form-group">
+        <label>授权码</label>
+        <input type="password" id="set-smtp-password" placeholder="SMTP 授权码，不是邮箱登录密码" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>收件邮箱（多个用逗号分隔）</label>
+        <input type="text" id="set-email-to" placeholder="a@qq.com, b@163.com">
+      </div>
+      <div class="form-group">
+        <label>发件人名称（可选，也会加在邮件标题前）</label>
+        <input type="text" id="set-smtp-from-name" placeholder="longjin 额度监控">
+      </div>
+
       <div class="form-actions">
-        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">发送测试</button>
+        <button class="btn btn-secondary btn-sm" onclick="testTelegram()">测试 Telegram</button>
+        <button class="btn btn-secondary btn-sm" onclick="testEmail()">测试邮件</button>
         <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
         <button class="btn btn-primary" onclick="saveSettings()">保存</button>
       </div>

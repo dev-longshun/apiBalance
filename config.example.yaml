@@ -12,6 +12,16 @@ telegram:
   bot_token: ""
   chat_id: ""          # 支持逗号分隔多个 ID
 
+email:                 # 余额预警邮件，和 Telegram 同时发；首次启动 seed 进 DB，之后以 Web 面板为准
+  enabled: false
+  smtp_host: ""        # 如 smtp.qq.com
+  smtp_port: 465
+  smtp_security: "ssl" # ssl（一般 465）或 starttls（一般 587）
+  smtp_user: ""        # 发件邮箱，同时是 SMTP 登录名
+  smtp_password: ""    # SMTP 授权码（QQ / 163 邮箱不是登录密码）
+  from_name: ""        # 发件人名称，可选，也会加在邮件标题前
+  to: ""               # 收件邮箱，逗号分隔多个
+
 admin:
   username: ""
   password: ""

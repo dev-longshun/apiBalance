@@ -130,6 +130,17 @@ async function loadSettings() {
     if (s.telegram_bot_token === '***configured***') {
       document.getElementById('set-token').placeholder = '已配置（留空保持不变）';
     }
+    document.getElementById('set-email-enabled').checked = !!s.email_enabled;
+    document.getElementById('set-smtp-host').value = s.smtp_host || '';
+    document.getElementById('set-smtp-port').value = s.smtp_port || 465;
+    document.getElementById('set-smtp-security').value = s.smtp_security || 'ssl';
+    document.getElementById('set-smtp-user').value = s.smtp_user || '';
+    document.getElementById('set-smtp-password').value = '';
+    document.getElementById('set-smtp-password').placeholder = s.smtp_password === '***configured***'
+      ? '已保存（留空保持不变）'
+      : 'SMTP 授权码，不是邮箱登录密码';
+    document.getElementById('set-email-to').value = s.email_to || '';
+    document.getElementById('set-smtp-from-name').value = s.smtp_from_name || '';
   } catch (_) {}
 }
 
@@ -271,7 +282,7 @@ function closeSettings() {
   document.getElementById('settings-modal').style.display = 'none';
 }
 
-async function saveSettings() {
+function collectSettings() {
   const interval = parseInt(document.getElementById('set-interval').value);
   const token = document.getElementById('set-token').value.trim();
   const chatid = document.getElementById('set-chatid').value.trim();
@@ -280,8 +291,21 @@ async function saveSettings() {
   if (token) body.telegram_bot_token = token;
   if (chatid) body.telegram_chat_id = chatid;
 
+  body.email_enabled = document.getElementById('set-email-enabled').checked;
+  body.smtp_host = document.getElementById('set-smtp-host').value.trim();
+  body.smtp_port = parseInt(document.getElementById('set-smtp-port').value) || 465;
+  body.smtp_security = document.getElementById('set-smtp-security').value;
+  body.smtp_user = document.getElementById('set-smtp-user').value.trim();
+  body.email_to = document.getElementById('set-email-to').value.trim();
+  body.smtp_from_name = document.getElementById('set-smtp-from-name').value.trim();
+  const smtpPassword = document.getElementById('set-smtp-password').value.trim();
+  if (smtpPassword) body.smtp_password = smtpPassword;
+  return body;
+}
+
+async function saveSettings() {
   try {
-    await api('PUT', '/settings', body);
+    await api('PUT', '/settings', collectSettings());
     toast('设置已保存');
     closeSettings();
   } catch (e) {
@@ -293,6 +317,18 @@ async function testTelegram() {
   try {
     await api('POST', '/telegram/test');
     toast('测试消息已发送');
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// Saves the form first so the test uses exactly what is on screen.
+async function testEmail() {
+  try {
+    await api('PUT', '/settings', collectSettings());
+    await loadSettings();
+    await api('POST', '/email/test');
+    toast('测试邮件已发送，请到收件箱查收');
   } catch (e) {
     toast(e.message, 'error');
   }

@@ -19,6 +19,7 @@ type Scheduler struct {
 	thresholds *store.ThresholdStore
 	settings   *store.SettingStore
 	notifyFn   func() *notifier.Telegram
+	emailFn    func() *notifier.Email
 
 	mu         sync.Mutex
 	cancel     context.CancelFunc
@@ -33,6 +34,7 @@ func New(
 	thresholds *store.ThresholdStore,
 	settings *store.SettingStore,
 	notifyFn func() *notifier.Telegram,
+	emailFn func() *notifier.Email,
 ) *Scheduler {
 	return &Scheduler{
 		checker:    chk,
@@ -40,6 +42,7 @@ func New(
 		thresholds: thresholds,
 		settings:   settings,
 		notifyFn:   notifyFn,
+		emailFn:    emailFn,
 	}
 }
 
@@ -133,6 +136,7 @@ func (s *Scheduler) pollAll() {
 	results := s.checker.CheckWithConcurrency(sites, maxConc)
 
 	tg := s.notifyFn()
+	mailer := s.emailFn()
 
 	for i := range sites {
 		site := &sites[i]
@@ -167,14 +171,8 @@ func (s *Scheduler) pollAll() {
 		for _, t := range thresholdList {
 			if result.Balance < t.Amount {
 				hasLow = true
-				if !t.Triggered {
+				if !t.Triggered && s.sendAlert(tg, mailer, site, result.Balance, t.Amount) {
 					s.thresholds.SetTriggered(t.ID, true)
-					if tg != nil && tg.IsConfigured() {
-						checkTime := model.Now()
-						if err := tg.SendAlert(site.Name, result.Balance, t.Amount, checkTime, site.LinkURL()); err != nil {
-							log.Printf("[scheduler] failed to send alert for site %s: %v", site.Name, err)
-						}
-					}
 				}
 			} else {
 				if t.Triggered {
@@ -190,6 +188,35 @@ func (s *Scheduler) pollAll() {
 			s.sites.UpdateBalance(site.ID, result.Balance, result.Unit, result.DetectedType, status, "")
 		}
 	}
+}
+
+// sendAlert pushes a low-balance alert to every configured channel. It returns false only
+// when channels exist but all of them failed, so the alert is retried on the next poll
+// instead of being silently lost.
+func (s *Scheduler) sendAlert(tg *notifier.Telegram, mailer *notifier.Email, site *model.Site, balance, threshold float64) bool {
+	checkTime := model.Now()
+	attempted, delivered := false, false
+
+	if tg != nil && tg.IsConfigured() {
+		attempted = true
+		if err := tg.SendAlert(site.Name, balance, threshold, checkTime, site.LinkURL()); err != nil {
+			log.Printf("[scheduler] failed to send alert for site %s: %v", site.Name, err)
+		} else {
+			delivered = true
+		}
+	}
+
+	if mailer != nil && mailer.IsConfigured() {
+		attempted = true
+		if err := mailer.SendAlert(site.Name, balance, threshold, checkTime, site.LinkURL()); err != nil {
+			log.Printf("[scheduler] failed to send email alert for site %s: %v", site.Name, err)
+		} else {
+			delivered = true
+			log.Printf("[scheduler] email alert sent for site %s (balance %.2f < %.2f)", site.Name, balance, threshold)
+		}
+	}
+
+	return delivered || !attempted
 }
 
 func (s *Scheduler) getInterval() time.Duration {

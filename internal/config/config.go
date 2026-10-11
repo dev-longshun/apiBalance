@@ -12,6 +12,7 @@ type Config struct {
 	Database  DatabaseConfig  `yaml:"database"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	Telegram  TelegramConfig  `yaml:"telegram"`
+	Email     EmailConfig     `yaml:"email"`
 	Admin     AdminConfig     `yaml:"admin"`
 }
 
@@ -36,6 +37,17 @@ type SchedulerConfig struct {
 type TelegramConfig struct {
 	BotToken string `yaml:"bot_token"`
 	ChatID   string `yaml:"chat_id"`
+}
+
+type EmailConfig struct {
+	Enabled      bool   `yaml:"enabled"`
+	SMTPHost     string `yaml:"smtp_host"`
+	SMTPPort     int    `yaml:"smtp_port"`
+	SMTPSecurity string `yaml:"smtp_security"`
+	SMTPUser     string `yaml:"smtp_user"`
+	SMTPPassword string `yaml:"smtp_password"`
+	FromName     string `yaml:"from_name"`
+	To           string `yaml:"to"`
 }
 
 func Load(path string) (*Config, error) {
@@ -81,6 +93,32 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("QS_CHAT_ID"); v != "" {
 		cfg.Telegram.ChatID = v
+	}
+	if v := os.Getenv("QS_EMAIL_ENABLED"); v != "" {
+		cfg.Email.Enabled = v == "true" || v == "1"
+	}
+	if v := os.Getenv("QS_SMTP_HOST"); v != "" {
+		cfg.Email.SMTPHost = v
+	}
+	if v := os.Getenv("QS_SMTP_PORT"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			cfg.Email.SMTPPort = p
+		}
+	}
+	if v := os.Getenv("QS_SMTP_SECURITY"); v != "" {
+		cfg.Email.SMTPSecurity = v
+	}
+	if v := os.Getenv("QS_SMTP_USER"); v != "" {
+		cfg.Email.SMTPUser = v
+	}
+	if v := os.Getenv("QS_SMTP_PASSWORD"); v != "" {
+		cfg.Email.SMTPPassword = v
+	}
+	if v := os.Getenv("QS_SMTP_FROM_NAME"); v != "" {
+		cfg.Email.FromName = v
+	}
+	if v := os.Getenv("QS_EMAIL_TO"); v != "" {
+		cfg.Email.To = v
 	}
 	if v := os.Getenv("QS_ADMIN_USER"); v != "" {
 		cfg.Admin.Username = v

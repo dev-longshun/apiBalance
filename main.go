@@ -70,6 +70,7 @@ func main() {
 		api.GET("/settings", settingHandler.GetSettings)
 		api.PUT("/settings", settingHandler.UpdateSettings)
 		api.POST("/telegram/test", settingHandler.TestTelegram)
+		api.POST("/email/test", settingHandler.TestEmail)
 		api.GET("/status", settingHandler.GetStatus)
 	})
 
@@ -85,7 +86,14 @@ func main() {
 		return notifier.New(token, chatID)
 	}
 
-	sched := scheduler.New(chk, srv.Sites, srv.Thresholds, srv.Settings, notifyFn)
+	emailFn := func() *notifier.Email {
+		if !handler.EmailEnabled(srv.Settings) {
+			return nil
+		}
+		return notifier.NewEmail(handler.EmailConfigFromSettings(srv.Settings))
+	}
+
+	sched := scheduler.New(chk, srv.Sites, srv.Thresholds, srv.Settings, notifyFn, emailFn)
 	sched.Start(ctx)
 	log.Printf("[scheduler] started with interval from settings")
 
@@ -156,6 +164,31 @@ func seedSettings(settings *store.SettingStore, cfg *config.Config) {
 	if cfg.Telegram.ChatID != "" {
 		if v, _ := settings.Get("telegram_chat_id"); v == "" {
 			settings.Set("telegram_chat_id", cfg.Telegram.ChatID)
+		}
+	}
+	// email: only seed keys that have never been set, so edits made in the web panel win.
+	if cfg.Email.Enabled {
+		if v, _ := settings.Get("email_enabled"); v == "" {
+			settings.Set("email_enabled", "true")
+		}
+	}
+	emailSeeds := map[string]string{
+		"smtp_host":      cfg.Email.SMTPHost,
+		"smtp_security":  cfg.Email.SMTPSecurity,
+		"smtp_user":      cfg.Email.SMTPUser,
+		"smtp_password":  cfg.Email.SMTPPassword,
+		"smtp_from_name": cfg.Email.FromName,
+		"email_to":       cfg.Email.To,
+	}
+	if cfg.Email.SMTPPort > 0 {
+		emailSeeds["smtp_port"] = strconv.Itoa(cfg.Email.SMTPPort)
+	}
+	for k, val := range emailSeeds {
+		if val == "" {
+			continue
+		}
+		if v, _ := settings.Get(k); v == "" {
+			settings.Set(k, val)
 		}
 	}
 	if cfg.Admin.Username != "" {

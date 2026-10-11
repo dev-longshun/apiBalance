@@ -1,6 +1,6 @@
 # Upstream Balance（上游渠道额度监控）
 
-Go + Gin + SQLite 单体服务，监控多个 AI API 供应商的账户余额，支持 Web 面板 + Telegram Bot 双通道操作。
+Go + Gin + SQLite 单体服务，监控多个 AI API 供应商的账户余额，支持 Web 面板 + Telegram Bot 双通道操作；余额跌破阈值时同时发 Telegram 和邮件预警。
 
 ## 技术栈
 
@@ -18,7 +18,7 @@ internal/
 ├── config/       # YAML 配置 + 环境变量覆盖
 ├── handler/      # HTTP 接口（站点 CRUD、手动查询、设置、登录鉴权）
 ├── model/        # 数据结构
-├── notifier/     # Telegram 消息推送（支持多 chat ID）
+├── notifier/     # Telegram 消息推送（支持多 chat ID）+ SMTP 邮件预警
 ├── scheduler/    # 定时轮询 + 阈值告警
 ├── server/       # Gin 引擎
 └── store/        # SQLite 存储（sites / thresholds / settings）
@@ -115,7 +115,7 @@ cd /root/apiBalance && docker compose pull && docker compose up -d
 
 `config.yaml` 挂载进容器（只读），首次启动会 seed 到 SQLite 的 `settings` 表。
 
-**注意**：`telegram.bot_token` 和 `telegram.chat_id` 只在 DB 值为空时 seed。更换 token 需要同时改 config.yaml **和** DB（用 Python sqlite3 或 Web 面板）。`admin.password` 每次启动都会覆盖 DB。
+**注意**：`telegram.bot_token`、`telegram.chat_id` 和 `email.*` 只在 DB 值为空时 seed。更换 token 需要同时改 config.yaml **和** DB（用 Python sqlite3 或 Web 面板）。`admin.password` 每次启动都会覆盖 DB。
 
 ```yaml
 server:
@@ -128,12 +128,31 @@ scheduler:
 telegram:
   bot_token: ""
   chat_id: ""          # 支持逗号分隔多个 ID，如 "123,-456"
+email:
+  enabled: false
+  smtp_host: ""        # 如 smtp.qq.com
+  smtp_port: 465
+  smtp_security: "ssl" # ssl（一般 465）或 starttls（一般 587）
+  smtp_user: ""        # 发件邮箱，同时是 SMTP 登录名
+  smtp_password: ""    # SMTP 授权码（QQ / 163 邮箱不是登录密码）
+  from_name: ""        # 发件人名称，可选，也会加在邮件标题前
+  to: ""               # 收件邮箱，逗号分隔多个
 admin:
   username: ""
   password: ""
 ```
 
-环境变量覆盖：`QS_PORT` / `QS_DB_PATH` / `QS_INTERVAL` / `QS_BOT_TOKEN` / `QS_CHAT_ID` / `QS_ADMIN_USER` / `QS_ADMIN_PASSWORD`
+环境变量覆盖：`QS_PORT` / `QS_DB_PATH` / `QS_INTERVAL` / `QS_BOT_TOKEN` / `QS_CHAT_ID` / `QS_ADMIN_USER` / `QS_ADMIN_PASSWORD` /
+`QS_EMAIL_ENABLED` / `QS_SMTP_HOST` / `QS_SMTP_PORT` / `QS_SMTP_SECURITY` / `QS_SMTP_USER` / `QS_SMTP_PASSWORD` / `QS_SMTP_FROM_NAME` / `QS_EMAIL_TO`
+
+### 邮件预警
+
+Telegram 在网络差时容易漏看，邮件作为第二通道：每个站点的每档阈值跌破时，Telegram 和邮件**同时**发一次，余额回到阈值以上后重新计数。
+
+- Web 面板「设置 › 邮件预警」可改全部字段，授权码只显示「已保存」；「测试邮件」会先保存表单再发一封测试信
+- 只要有一个通道发送成功就记为已提醒；**所有通道都失败时不记**，下一轮巡检会重发（之前是先记后发，发失败就永久漏掉）
+- 发送失败 / 成功都会写容器日志：`docker logs apibalance 2>&1 | grep "email alert"`
+- QQ 邮箱：网页版「设置 › 账号 › POP3/IMAP/SMTP 服务」开启后生成授权码；发件邮箱必须和登录 SMTP 的邮箱一致
 
 ## Telegram Bot 操作指南
 

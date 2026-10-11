@@ -103,12 +103,28 @@ type SettingsResponse struct {
 	IntervalMinutes  int    `json:"interval_minutes"`
 	TelegramBotToken string `json:"telegram_bot_token"`
 	TelegramChatID   string `json:"telegram_chat_id"`
+	EmailEnabled     bool   `json:"email_enabled"`
+	SMTPHost         string `json:"smtp_host"`
+	SMTPPort         int    `json:"smtp_port"`
+	SMTPSecurity     string `json:"smtp_security"`
+	SMTPUser         string `json:"smtp_user"`
+	SMTPPassword     string `json:"smtp_password"` // "***configured***" when set, never the real value
+	SMTPFromName     string `json:"smtp_from_name"`
+	EmailTo          string `json:"email_to"`
 }
 
 type SettingsUpdateRequest struct {
 	IntervalMinutes  *int    `json:"interval_minutes"`
 	TelegramBotToken *string `json:"telegram_bot_token"`
 	TelegramChatID   *string `json:"telegram_chat_id"`
+	EmailEnabled     *bool   `json:"email_enabled"`
+	SMTPHost         *string `json:"smtp_host"`
+	SMTPPort         *int    `json:"smtp_port"`
+	SMTPSecurity     *string `json:"smtp_security"`
+	SMTPUser         *string `json:"smtp_user"`
+	SMTPPassword     *string `json:"smtp_password"`
+	SMTPFromName     *string `json:"smtp_from_name"`
+	EmailTo          *string `json:"email_to"`
 }
 
 type StatusResponse struct {
@@ -120,6 +136,7 @@ type StatusResponse struct {
 	LastPollAt         string `json:"last_poll_at"`
 	NextPollAt         string `json:"next_poll_at"`
 	TelegramConfigured bool   `json:"telegram_configured"`
+	EmailConfigured    bool   `json:"email_configured"`
 	Version            string `json:"version"`
 }
 
