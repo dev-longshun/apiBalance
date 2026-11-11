@@ -48,14 +48,51 @@ func (p *Sub2APIProber) Probe(site *model.Site) (*Result, error) {
 				extra["today_cost"] = cost
 			}
 		}
+		// 累计实际扣费只增不减，充值不影响它，算一段时间的消耗比余额差更准
+		if total, ok := usage["total"].(map[string]interface{}); ok {
+			if cost, ok := actualCost(total); ok {
+				extra["total_cost"] = cost
+			}
+		}
 	}
 
 	result := &Result{
 		Balance: balance,
 		Unit:    "USD",
+		Daily:   dailyUsage(resp),
 	}
 	if len(extra) > 0 {
 		result.Extra = extra
 	}
 	return result, nil
+}
+
+// actualCost 取实际扣费（actual_cost，已乘站点倍率）；老版本 sub2api 没有这个字段时退回 cost。
+func actualCost(m map[string]interface{}) (float64, bool) {
+	if v, ok := getFloat(m, "actual_cost"); ok {
+		return v, true
+	}
+	return getFloat(m, "cost")
+}
+
+// dailyUsage 解析 daily_usage：[{date, actual_cost, ...}]，没有或格式不对就返回 nil。
+func dailyUsage(resp map[string]interface{}) []model.DailyCost {
+	list, ok := resp["daily_usage"].([]interface{})
+	if !ok {
+		return nil
+	}
+	var out []model.DailyCost
+	for _, item := range list {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		date, _ := m["date"].(string)
+		cost, ok := actualCost(m)
+		if len(date) < 10 || !ok {
+			continue
+		}
+		out = append(out, model.DailyCost{Date: date[:10], Cost: cost})
+	}
+	return out
 }

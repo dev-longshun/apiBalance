@@ -18,6 +18,7 @@ type Result struct {
 	Balance float64
 	Unit    string
 	Extra   map[string]float64
+	Daily   []model.DailyCost
 }
 
 // Checker orchestrates sequential probing across registered Probers.
@@ -52,6 +53,7 @@ func (c *Checker) Check(site *model.Site) *model.CheckResult {
 						Unit:         res.Unit,
 						DetectedType: p.Name(),
 						Extra:        res.Extra,
+						Daily:        res.Daily,
 					}
 				}
 				break
@@ -76,6 +78,7 @@ func (c *Checker) Check(site *model.Site) *model.CheckResult {
 				Unit:         res.Unit,
 				DetectedType: p.Name(),
 				Extra:        res.Extra,
+				Daily:        res.Daily,
 			}
 		}
 	}

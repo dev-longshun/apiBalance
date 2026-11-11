@@ -10,6 +10,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"upstream-balance/internal/checker"
+	"upstream-balance/internal/forecast"
 	"upstream-balance/internal/model"
 	"upstream-balance/internal/store"
 )
@@ -21,6 +22,7 @@ type Bot struct {
 	sites      *store.SiteStore
 	thresholds *store.ThresholdStore
 	settings   *store.SettingStore
+	forecast   *forecast.Service
 	startTime  time.Time
 	cancel     context.CancelFunc
 
@@ -28,7 +30,7 @@ type Bot struct {
 	NextPollAt string
 }
 
-func New(token string, chatIDs []int64, chk *checker.Checker, sites *store.SiteStore, thresholds *store.ThresholdStore, settings *store.SettingStore) (*Bot, error) {
+func New(token string, chatIDs []int64, chk *checker.Checker, sites *store.SiteStore, thresholds *store.ThresholdStore, settings *store.SettingStore, fc *forecast.Service) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("create bot api: %w", err)
@@ -53,6 +55,7 @@ func New(token string, chatIDs []int64, chk *checker.Checker, sites *store.SiteS
 		sites:      sites,
 		thresholds: thresholds,
 		settings:   settings,
+		forecast:   fc,
 		startTime:  time.Now(),
 	}, nil
 }
@@ -318,6 +321,7 @@ func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
 	}
 
 	results := b.checker.CheckWithConcurrency(allSites, 5)
+	cfg := b.forecast.Config()
 
 	var lines []string
 	lines = append(lines, "📊 额度总览\n")
@@ -345,22 +349,29 @@ func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
 			}
 		}
 
+		b.forecast.Record(site.ID, cr)
+		fc := b.forecast.For(site.ID, cr.Balance)
+
 		status := "ok"
 		if belowThreshold {
 			status = "low"
-			lines = append(lines, fmt.Sprintf("🟡 %-16s $%.2f  ⚠️", site.Name, cr.Balance))
+		}
+		if belowThreshold || fc.Warn(cfg) {
+			lines = append(lines, fmt.Sprintf("🟡 %s  %s", site.Name, forecast.Money(cr.Balance)))
 			warnCount++
 		} else {
-			lines = append(lines, fmt.Sprintf("🟢 %-16s $%.2f", site.Name, cr.Balance))
+			lines = append(lines, fmt.Sprintf("🟢 %s  %s", site.Name, forecast.Money(cr.Balance)))
 			okCount++
 		}
+		lines = append(lines, "   "+fc.Line(cfg))
 		_ = b.sites.UpdateBalance(site.ID, cr.Balance, cr.Unit, cr.DetectedType, status, "")
 	}
 
-	now := time.Now().Format("2006-01-02 15:04:05")
+	now := time.Now().In(forecast.Beijing).Format("2006-01-02 15:04:05")
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("总计: %d 正常 / %d 告警 / %d 异常", okCount, warnCount, errCount))
 	lines = append(lines, fmt.Sprintf("查询时间: %s", now))
+	lines = append(lines, fmt.Sprintf("🟡 = 低于告警线，或按日均撑不到 %g 天、按最近 1 小时撑不到 %g 小时", cfg.DaysWarn, cfg.HoursWarn))
 	lines = append(lines, "")
 	lines = append(lines, "👇 需要充值时，点下方站点按钮直达：")
 

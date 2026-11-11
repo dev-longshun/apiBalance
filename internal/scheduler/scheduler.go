@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"upstream-balance/internal/checker"
+	"upstream-balance/internal/forecast"
 	"upstream-balance/internal/model"
 	"upstream-balance/internal/notifier"
 	"upstream-balance/internal/store"
@@ -18,6 +19,7 @@ type Scheduler struct {
 	sites      *store.SiteStore
 	thresholds *store.ThresholdStore
 	settings   *store.SettingStore
+	forecast   *forecast.Service
 	notifyFn   func() *notifier.Telegram
 	emailFn    func() *notifier.Email
 
@@ -33,6 +35,7 @@ func New(
 	sites *store.SiteStore,
 	thresholds *store.ThresholdStore,
 	settings *store.SettingStore,
+	fc *forecast.Service,
 	notifyFn func() *notifier.Telegram,
 	emailFn func() *notifier.Email,
 ) *Scheduler {
@@ -41,6 +44,7 @@ func New(
 		sites:      sites,
 		thresholds: thresholds,
 		settings:   settings,
+		forecast:   fc,
 		notifyFn:   notifyFn,
 		emailFn:    emailFn,
 	}
@@ -151,6 +155,7 @@ func (s *Scheduler) pollAll() {
 		}
 
 		if result.Error == "" {
+			s.forecast.Record(site.ID, result)
 			if err := s.sites.UpdateBalance(site.ID, result.Balance, result.Unit, result.DetectedType, "ok", ""); err != nil {
 				log.Printf("[scheduler] failed to update site %s: %v", site.Name, err)
 			}
@@ -187,7 +192,67 @@ func (s *Scheduler) pollAll() {
 		if status != "ok" {
 			s.sites.UpdateBalance(site.ID, result.Balance, result.Unit, result.DetectedType, status, "")
 		}
+
+		if alert, commit := s.forecast.Evaluate(*site, s.forecast.For(site.ID, result.Balance)); alert != nil {
+			if s.sendForecastAlert(tg, mailer, site, alert) {
+				commit()
+			}
+		}
 	}
+
+	s.maybeDailyReport(tg)
+}
+
+// sendForecastAlert 发消耗预测提醒（Telegram + 邮件）；规则同 sendAlert：有通道但全失败才返回 false。
+func (s *Scheduler) sendForecastAlert(tg *notifier.Telegram, mailer *notifier.Email, site *model.Site, alert *forecast.Alert) bool {
+	attempted, delivered := false, false
+	if tg != nil && tg.IsConfigured() {
+		attempted = true
+		kb := notifier.SiteButtons([]string{site.Name}, []string{site.LinkURL()})
+		if err := tg.SendPlain(alert.Text, kb); err != nil {
+			log.Printf("[scheduler] failed to send forecast alert for site %s: %v", site.Name, err)
+		} else {
+			delivered = true
+		}
+	}
+	if mailer != nil && mailer.IsConfigured() {
+		attempted = true
+		body := alert.Text
+		if link := site.LinkURL(); link != "" {
+			body += "\n\n充值 / 控制台：" + link
+		}
+		if err := mailer.Send(alert.Subject, body); err != nil {
+			log.Printf("[scheduler] failed to send forecast email for site %s: %v", site.Name, err)
+		} else {
+			delivered = true
+		}
+	}
+	if delivered {
+		log.Printf("[scheduler] forecast alert sent for site %s: %s", site.Name, alert.Subject)
+	}
+	return delivered || !attempted
+}
+
+// maybeDailyReport 每天到点后的第一次巡检发日报（只发 Telegram）。
+func (s *Scheduler) maybeDailyReport(tg *notifier.Telegram) {
+	if tg == nil || !tg.IsConfigured() || !s.forecast.ReportDue() {
+		return
+	}
+	sites, err := s.sites.List()
+	if err != nil || len(sites) == 0 {
+		return
+	}
+	names := make([]string, len(sites))
+	links := make([]string, len(sites))
+	for i := range sites {
+		names[i], links[i] = sites[i].Name, sites[i].LinkURL()
+	}
+	if err := tg.SendPlain(s.forecast.DailyReport(sites), notifier.SiteButtons(names, links)); err != nil {
+		log.Printf("[scheduler] failed to send daily report: %v", err)
+		return
+	}
+	s.forecast.MarkReported()
+	log.Printf("[scheduler] daily report sent")
 }
 
 // sendAlert pushes a low-balance alert to every configured channel. It returns false only

@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,6 +19,7 @@ import (
 	"upstream-balance/internal/bot"
 	"upstream-balance/internal/checker"
 	"upstream-balance/internal/config"
+	"upstream-balance/internal/forecast"
 	"upstream-balance/internal/handler"
 	"upstream-balance/internal/notifier"
 	"upstream-balance/internal/scheduler"
@@ -93,7 +94,8 @@ func main() {
 		return notifier.NewEmail(handler.EmailConfigFromSettings(srv.Settings))
 	}
 
-	sched := scheduler.New(chk, srv.Sites, srv.Thresholds, srv.Settings, notifyFn, emailFn)
+	fc := forecast.New(store.NewUsageStore(db), srv.Settings)
+	sched := scheduler.New(chk, srv.Sites, srv.Thresholds, srv.Settings, fc, notifyFn, emailFn)
 	sched.Start(ctx)
 	log.Printf("[scheduler] started with interval from settings")
 
@@ -110,7 +112,7 @@ func main() {
 			}
 		}
 		if len(chatIDs) > 0 {
-			tgBot, err = bot.New(token, chatIDs, chk, srv.Sites, srv.Thresholds, srv.Settings)
+			tgBot, err = bot.New(token, chatIDs, chk, srv.Sites, srv.Thresholds, srv.Settings, fc)
 			if err != nil {
 				log.Printf("[bot] failed to start: %v", err)
 			} else {
@@ -120,13 +122,18 @@ func main() {
 		}
 	}
 
+	listenHost := cfg.Server.Host
+	if listenHost == "" {
+		listenHost = "0.0.0.0"
+	}
+	listenAddr := net.JoinHostPort(listenHost, strconv.Itoa(cfg.Server.Port))
 	httpSrv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:    listenAddr,
 		Handler: srv.Handler(),
 	}
 
 	go func() {
-		log.Printf("[server] listening on :%d", cfg.Server.Port)
+		log.Printf("[server] listening on %s", listenAddr)
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}

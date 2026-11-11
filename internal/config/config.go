@@ -22,7 +22,8 @@ type AdminConfig struct {
 }
 
 type ServerConfig struct {
-	Port int `yaml:"port"`
+	Host string `yaml:"host"` // 监听地址，空则 0.0.0.0；用 network_mode: host 部署时可设 127.0.0.1
+	Port int    `yaml:"port"`
 }
 
 type DatabaseConfig struct {
@@ -52,7 +53,7 @@ type EmailConfig struct {
 
 func Load(path string) (*Config, error) {
 	cfg := &Config{
-		Server:    ServerConfig{Port: 8080},
+		Server:    ServerConfig{Host: "0.0.0.0", Port: 8080},
 		Database:  DatabaseConfig{Path: "./data/upstream-balance.db"},
 		Scheduler: SchedulerConfig{IntervalMinutes: 30, MaxConcurrency: 10},
 	}

@@ -74,6 +74,36 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- 每次查到余额记一条，用来算最近 1 小时的消耗；保留约 35 天
+CREATE TABLE IF NOT EXISTS balance_snapshots (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id    TEXT NOT NULL,
+    at         INTEGER NOT NULL,
+    balance    REAL NOT NULL,
+    total_cost REAL,
+    FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_balance_snapshots_site_at ON balance_snapshots(site_id, at);
+
+-- 上游自报的按天消耗（sub2api daily_usage），用来算日均
+CREATE TABLE IF NOT EXISTS daily_usage (
+    site_id TEXT NOT NULL,
+    date    TEXT NOT NULL,
+    cost    REAL NOT NULL,
+    PRIMARY KEY (site_id, date),
+    FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+
+-- 消耗预测提醒的去重状态：kind = days / hours，level 越大越紧急
+CREATE TABLE IF NOT EXISTS forecast_alerts (
+    site_id TEXT NOT NULL,
+    kind    TEXT NOT NULL,
+    level   INTEGER NOT NULL,
+    sent_at INTEGER NOT NULL,
+    PRIMARY KEY (site_id, kind),
+    FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
 `
 	if _, err := db.Exec(ddl); err != nil {
 		return err

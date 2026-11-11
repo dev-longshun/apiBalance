@@ -52,13 +52,33 @@ func (t *Telegram) SendWithKeyboard(text string, replyMarkup map[string]interfac
 	return lastErr
 }
 
+// SendPlain 按纯文本发送（不解析 Markdown），站点名里的 _ * 等字符不会弄坏消息。
+func (t *Telegram) SendPlain(text string, replyMarkup map[string]interface{}) error {
+	var lastErr error
+	for _, chatID := range t.chatIDs {
+		if err := t.post(chatID, text, "", replyMarkup); err != nil {
+			time.Sleep(2 * time.Second)
+			if err = t.post(chatID, text, "", replyMarkup); err != nil {
+				lastErr = err
+			}
+		}
+	}
+	return lastErr
+}
+
 func (t *Telegram) sendTo(chatID, text string, replyMarkup map[string]interface{}) error {
+	return t.post(chatID, text, "Markdown", replyMarkup)
+}
+
+func (t *Telegram) post(chatID, text, parseMode string, replyMarkup map[string]interface{}) error {
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", t.botToken)
 
 	payload := map[string]interface{}{
-		"chat_id":    chatID,
-		"text":       text,
-		"parse_mode": "Markdown",
+		"chat_id": chatID,
+		"text":    text,
+	}
+	if parseMode != "" {
+		payload["parse_mode"] = parseMode
 	}
 	if replyMarkup != nil {
 		payload["reply_markup"] = replyMarkup
@@ -120,4 +140,27 @@ func (t *Telegram) SendAlert(siteName string, balance float64, threshold float64
 
 func (t *Telegram) SendTestMessage() error {
 	return t.Send("✅ UpstreamBalance 测试消息发送成功！")
+}
+
+// SiteButtons 为有充值链接的站点生成 url 按钮（每行 2 个），没有可用链接时返回 nil。
+func SiteButtons(names, links []string) map[string]interface{} {
+	var rows [][]map[string]string
+	var row []map[string]string
+	for i, name := range names {
+		if !isHTTPURL(links[i]) {
+			continue
+		}
+		row = append(row, map[string]string{"text": "💳 " + name, "url": strings.TrimSpace(links[i])})
+		if len(row) == 2 {
+			rows = append(rows, row)
+			row = nil
+		}
+	}
+	if len(row) > 0 {
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return map[string]interface{}{"inline_keyboard": rows}
 }

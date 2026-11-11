@@ -65,7 +65,15 @@ type CheckResult struct {
 	Unit         string             `json:"unit"`
 	DetectedType string             `json:"detected_type"`
 	Extra        map[string]float64 `json:"extra,omitempty"`
-	Error        string             `json:"error,omitempty"`
+	// Daily 是上游自报的按天消耗（sub2api 的 daily_usage），用来算日均；上游不给就为空。
+	Daily []DailyCost `json:"daily,omitempty"`
+	Error string      `json:"error,omitempty"`
+}
+
+// DailyCost 是某一天（上游口径的日期 YYYY-MM-DD）实际扣掉的余额。
+type DailyCost struct {
+	Date string  `json:"date"`
+	Cost float64 `json:"cost"`
 }
 
 type AlertSent struct {
