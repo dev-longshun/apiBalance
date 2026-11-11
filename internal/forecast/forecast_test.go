@@ -102,7 +102,8 @@ func TestComputeSurgeAndLeft(t *testing.T) {
 	if f.HoursLeft == nil || *f.HoursLeft < 4.1 || *f.HoursLeft > 4.2 || !f.Surge {
 		t.Fatalf("hours left = %v surge = %v x=%v", f.HoursLeft, f.Surge, f.SurgeX)
 	}
-	if !f.Warn(cfg) || !strings.Contains(f.Line(cfg), "突增") {
+	// 约 4.2 小时 > 3 小时、日均约 31 小时 > 24 小时：不标黄，但写明突增
+	if f.Warn(cfg) || !strings.Contains(f.Line(cfg), "突增") {
 		t.Fatalf("line = %q", f.Line(cfg))
 	}
 	// 半夜零星请求：$0.3/小时虽是平时的 3 倍以上，但不到 $1/小时，不算突增
@@ -182,26 +183,29 @@ func TestEvaluateHoursEscalatesOnceAndResets(t *testing.T) {
 		commit()
 		return a
 	}
-	if a := send(fc(5)); a == nil || !strings.Contains(a.Text, "消耗加快") {
-		t.Fatalf("first warn = %+v", a)
+	if a := send(fc(5)); a != nil { // 5 小时：不提醒（阈值 3 小时）
+		t.Fatalf("5h should be silent: %+v", a)
 	}
-	if a := send(fc(4)); a != nil {
-		t.Fatalf("repeat warn should be silent: %+v", a)
-	}
-	if a := send(fc(1.5)); a == nil || !strings.Contains(a.Text, "🚨") {
+	if a := send(fc(2.5)); a == nil || !strings.Contains(a.Text, "🚨") {
 		t.Fatalf("urgent = %+v", a)
 	}
 	if a := send(fc(1)); a != nil {
 		t.Fatalf("repeat urgent should be silent")
 	}
-	send(fc(7)) // 6–9 小时之间：不清状态
-	if a := send(fc(5)); a != nil {
+	send(fc(4)) // 3–4.5 小时之间：不清状态
+	if a := send(fc(2.5)); a != nil {
 		t.Fatalf("hysteresis broken: %+v", a)
 	}
 	send(fc(20)) // 充值后恢复 → 清状态
 	*clock = clock.Add(time.Hour)
-	if a := send(fc(5)); a == nil {
-		t.Fatalf("should warn again after reset")
+	if a := send(fc(2.5)); a == nil {
+		t.Fatalf("should alert again after reset")
+	}
+	// 两档分开配置时（比如 6 / 3）仍会先「消耗加快」再「紧急」
+	_ = svc.settings.Set("forecast_hours_warn", "6")
+	send(fc(20))
+	if a := send(fc(5)); a == nil || !strings.Contains(a.Text, "消耗加快") {
+		t.Fatalf("configured 6h warn = %+v", a)
 	}
 }
 

@@ -32,13 +32,13 @@ const (
 // Config 是提醒阈值，存在 settings 表里，缺省用下面的默认值。
 type Config struct {
 	DailyWarn   float64 // 按日均剩余不到几小时 → 考虑充值（能撑 24 小时就算健康）
-	HoursWarn   float64 // 按最近 1 小时速度剩余不到几小时 → 消耗加快
-	HoursUrgent float64 // 同上，更紧急
+	HoursWarn   float64 // 按最近 1 小时速度剩余不到几小时 → 消耗加快（默认与 HoursUrgent 相同，即只有一档）
+	HoursUrgent float64 // 同上，更紧急：🚨 余额快用完了
 	SurgeRatio  float64 // 最近 1 小时速度达到日均小时速度的几倍算突增
 	ReportHour  int     // 每日日报的北京时间整点
 }
 
-var defaultConfig = Config{DailyWarn: 24, HoursWarn: 6, HoursUrgent: 3, SurgeRatio: 3, ReportHour: 10}
+var defaultConfig = Config{DailyWarn: 24, HoursWarn: 3, HoursUrgent: 3, SurgeRatio: 3, ReportHour: 10}
 
 // Forecast 是一个站点此刻的消耗估算；指针为 nil 表示数据不够，还在积累。
 type Forecast struct {
