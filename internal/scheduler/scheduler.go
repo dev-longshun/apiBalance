@@ -209,7 +209,7 @@ func (s *Scheduler) sendForecastAlert(tg *notifier.Telegram, mailer *notifier.Em
 	if tg != nil && tg.IsConfigured() {
 		attempted = true
 		kb := notifier.SiteButtons([]string{site.Name}, []string{site.LinkURL()})
-		if err := tg.SendPlain(alert.Text, kb); err != nil {
+		if err := tg.SendHTML(alert.HTML, kb); err != nil {
 			log.Printf("[scheduler] failed to send forecast alert for site %s: %v", site.Name, err)
 		} else {
 			delivered = true
@@ -247,7 +247,7 @@ func (s *Scheduler) maybeDailyReport(tg *notifier.Telegram) {
 	for i := range sites {
 		names[i], links[i] = sites[i].Name, sites[i].LinkURL()
 	}
-	if err := tg.SendPlain(s.forecast.DailyReport(sites), notifier.SiteButtons(names, links)); err != nil {
+	if err := tg.SendHTML(s.forecast.DailyReport(sites), notifier.SiteButtons(names, links)); err != nil {
 		log.Printf("[scheduler] failed to send daily report: %v", err)
 		return
 	}

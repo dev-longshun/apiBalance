@@ -66,6 +66,20 @@ func (t *Telegram) SendPlain(text string, replyMarkup map[string]interface{}) er
 	return lastErr
 }
 
+// SendHTML 按 Telegram HTML 发送，调用方负责转义。
+func (t *Telegram) SendHTML(text string, replyMarkup map[string]interface{}) error {
+	var lastErr error
+	for _, chatID := range t.chatIDs {
+		if err := t.post(chatID, text, "HTML", replyMarkup); err != nil {
+			time.Sleep(2 * time.Second)
+			if err = t.post(chatID, text, "HTML", replyMarkup); err != nil {
+				lastErr = err
+			}
+		}
+	}
+	return lastErr
+}
+
 func (t *Telegram) sendTo(chatID, text string, replyMarkup map[string]interface{}) error {
 	return t.post(chatID, text, "Markdown", replyMarkup)
 }

@@ -4,6 +4,7 @@ package forecast
 
 import (
 	"fmt"
+	"html"
 	"math"
 	"strconv"
 	"strings"
@@ -30,14 +31,14 @@ const (
 
 // Config 是提醒阈值，存在 settings 表里，缺省用下面的默认值。
 type Config struct {
-	DaysWarn    float64 // 按日均剩余不到几天 → 考虑充值
-	HoursWarn   float64 // 按最近 1 小时速度剩余不到几小时 → 消耗突增
+	DailyWarn   float64 // 按日均剩余不到几小时 → 考虑充值（能撑 24 小时就算健康）
+	HoursWarn   float64 // 按最近 1 小时速度剩余不到几小时 → 消耗加快
 	HoursUrgent float64 // 同上，更紧急
 	SurgeRatio  float64 // 最近 1 小时速度达到日均小时速度的几倍算突增
 	ReportHour  int     // 每日日报的北京时间整点
 }
 
-var defaultConfig = Config{DaysWarn: 3, HoursWarn: 6, HoursUrgent: 2, SurgeRatio: 3, ReportHour: 10}
+var defaultConfig = Config{DailyWarn: 24, HoursWarn: 6, HoursUrgent: 3, SurgeRatio: 3, ReportHour: 10}
 
 // Forecast 是一个站点此刻的消耗估算；指针为 nil 表示数据不够，还在积累。
 type Forecast struct {
@@ -88,7 +89,7 @@ func (s *Service) Config() Config {
 			}
 		}
 	}
-	num("forecast_days_warn", &c.DaysWarn)
+	num("forecast_daily_warn_hours", &c.DailyWarn)
 	num("forecast_hours_warn", &c.HoursWarn)
 	num("forecast_hours_urgent", &c.HoursUrgent)
 	num("forecast_surge_ratio", &c.SurgeRatio)
@@ -325,7 +326,24 @@ func (f Forecast) Warn(cfg Config) bool {
 	if f.HoursLeft != nil && *f.HoursLeft < cfg.HoursWarn {
 		return true
 	}
-	return f.DaysLeft != nil && *f.DaysLeft < cfg.DaysWarn
+	return f.DaysLeft != nil && *f.DaysLeft*24 < cfg.DailyWarn
+}
+
+// Urgent 表示按任一种估法都撑不到 HoursUrgent 小时。
+func (f Forecast) Urgent(cfg Config) bool {
+	h := f.HoursToEmpty()
+	return h != nil && *h < cfg.HoursUrgent
+}
+
+// Icon：🟢 健康 / 🟡 该充值了 / 🟠 紧急；低于固定告警线也至少是 🟡。
+func (f Forecast) Icon(cfg Config, belowThreshold bool) string {
+	switch {
+	case f.Urgent(cfg):
+		return "🟠"
+	case belowThreshold || f.Warn(cfg):
+		return "🟡"
+	}
+	return "🟢"
 }
 
 // Line 是额度总览里每个站点下面那一行：近 1 小时 · 日均 · 可撑多久。
@@ -338,9 +356,6 @@ func (f Forecast) Line(cfg Config) string {
 	if f.Surge {
 		line += fmt.Sprintf(" · 突增 %.1f 倍", f.SurgeX)
 	}
-	if f.Warn(cfg) {
-		line += " ⚠️"
-	}
 	return line
 }
 
@@ -350,9 +365,11 @@ func (f Forecast) ReportLine(cfg Config) string {
 	if h := f.HoursToEmpty(); h != nil {
 		parts = append(parts, "可撑"+Duration(*h))
 	}
-	line := strings.Join(parts, " · ")
-	if f.Warn(cfg) {
-		line += " ⚠️"
-	}
-	return line
+	return strings.Join(parts, " · ")
+}
+
+// SiteBlock 是总览 / 日报里一个站点的 Telegram HTML：第一行站点名 + 加粗余额，
+// 第二行缩进写消耗情况，站点之间由调用方空一行。
+func SiteBlock(icon, name string, balance float64, detail string) string {
+	return fmt.Sprintf("%s %s　<b>%s</b>\n      └ %s", icon, html.EscapeString(name), Money(balance), html.EscapeString(detail))
 }

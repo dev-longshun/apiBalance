@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/url"
 	"strings"
 	"time"
@@ -324,13 +325,13 @@ func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
 	cfg := b.forecast.Config()
 
 	var lines []string
-	lines = append(lines, "📊 额度总览\n")
+	lines = append(lines, "📊 <b>额度总览</b>", "")
 	okCount, warnCount, errCount := 0, 0, 0
 
 	for _, site := range allSites {
 		cr := results[site.ID]
 		if cr == nil || cr.Error != "" {
-			lines = append(lines, fmt.Sprintf("🔴 %-16s 查询失败", site.Name))
+			lines = append(lines, "🔴 "+html.EscapeString(site.Name)+"　查询失败", "")
 			errCount++
 			errMsg := "check failed"
 			if cr != nil && cr.Error != "" {
@@ -356,22 +357,20 @@ func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
 		if belowThreshold {
 			status = "low"
 		}
-		if belowThreshold || fc.Warn(cfg) {
-			lines = append(lines, fmt.Sprintf("🟡 %s  %s", site.Name, forecast.Money(cr.Balance)))
-			warnCount++
-		} else {
-			lines = append(lines, fmt.Sprintf("🟢 %s  %s", site.Name, forecast.Money(cr.Balance)))
+		icon := fc.Icon(cfg, belowThreshold)
+		if icon == "🟢" {
 			okCount++
+		} else {
+			warnCount++
 		}
-		lines = append(lines, "   "+fc.Line(cfg))
+		lines = append(lines, forecast.SiteBlock(icon, site.Name, cr.Balance, fc.Line(cfg)), "")
 		_ = b.sites.UpdateBalance(site.ID, cr.Balance, cr.Unit, cr.DetectedType, status, "")
 	}
 
 	now := time.Now().In(forecast.Beijing).Format("2006-01-02 15:04:05")
-	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("总计: %d 正常 / %d 告警 / %d 异常", okCount, warnCount, errCount))
 	lines = append(lines, fmt.Sprintf("查询时间: %s", now))
-	lines = append(lines, fmt.Sprintf("🟡 = 低于告警线，或按日均撑不到 %g 天、按最近 1 小时撑不到 %g 小时", cfg.DaysWarn, cfg.HoursWarn))
+	lines = append(lines, fmt.Sprintf("🟡 撑不到 %s（或低于告警线）　🟠 撑不到 %s", Hours(cfg.DailyWarn), Hours(cfg.HoursUrgent)))
 	lines = append(lines, "")
 	lines = append(lines, "👇 需要充值时，点下方站点按钮直达：")
 
@@ -384,6 +383,7 @@ func (b *Bot) showBalanceOverview(chatID int64, progressText string) {
 	)
 
 	msg := tgbotapi.NewMessage(chatID, strings.Join(lines, "\n"))
+	msg.ParseMode = tgbotapi.ModeHTML
 	msg.ReplyMarkup = kb
 	b.api.Send(msg)
 }
@@ -456,4 +456,9 @@ func (b *Bot) doHelp(chatID int64) {
 func (b *Bot) sendText(chatID int64, text string) {
 	msg := tgbotapi.NewMessage(chatID, text)
 	b.api.Send(msg)
+}
+
+// Hours 把阈值小时数写成「24 小时」这种短格式（不带「约」）。
+func Hours(h float64) string {
+	return fmt.Sprintf("%g 小时", h)
 }

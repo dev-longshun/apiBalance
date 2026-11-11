@@ -220,7 +220,7 @@ func TestEvaluateUncommittedAlertIsRetried(t *testing.T) {
 func TestEvaluateDaysQuietHoursAndOnce(t *testing.T) {
 	svc, _, clock := newService(t)
 	site := model.Site{ID: "s1", Name: "叮当猫"}
-	f := Forecast{Balance: 50, DailyAvg: f64(38), DaysLeft: f64(1.3)}
+	f := Forecast{Balance: 15, DailyAvg: f64(38), DaysLeft: f64(0.4)} // 约 9.6 小时 < 24 小时
 
 	*clock = time.Date(2026, 11, 11, 3, 0, 0, 0, Beijing) // 凌晨 3 点：不发
 	if a, _ := svc.Evaluate(site, f); a != nil {
@@ -257,10 +257,36 @@ func TestDailyReportDueAndText(t *testing.T) {
 	for d := 1; d <= 7; d++ {
 		_ = usage.UpsertDaily("s1", []model.DailyCost{{Date: clock.AddDate(0, 0, -d).Format("2006-01-02"), Cost: 38}})
 	}
-	text := svc.DailyReport([]model.Site{{ID: "s1", Name: "叮当猫", Balance: 50, Status: "ok"}})
-	for _, want := range []string{"每日额度日报 · 11-11", "🟡 叮当猫  $50.00", "昨天 $38.00", "日均 $38.00", "建议充值：叮当猫"} {
+	text := svc.DailyReport([]model.Site{{ID: "s1", Name: "叮当猫", Balance: 20, Status: "ok"}})
+	for _, want := range []string{"每日额度日报</b> · 11-11", "🟡 叮当猫　<b>$20.00</b>", "└ 昨天 $38.00", "日均 $38.00", "建议充值：叮当猫"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("report missing %q:\n%s", want, text)
 		}
+	}
+}
+
+func TestThresholds24hHealthy3hUrgent(t *testing.T) {
+	cfg := defaultConfig
+	// 日均 $48 → 每小时 $2
+	at := func(balance float64) Forecast {
+		return Forecast{Balance: balance, DailyAvg: f64(48), DaysLeft: f64(balance / 48)}
+	}
+	if f := at(60); f.Warn(cfg) || f.Icon(cfg, false) != "🟢" { // 30 小时：健康
+		t.Fatalf("30h should be healthy")
+	}
+	if f := at(40); !f.Warn(cfg) || f.Icon(cfg, false) != "🟡" { // 20 小时：该充值
+		t.Fatalf("20h should warn")
+	}
+	if f := at(5); f.Icon(cfg, false) != "🟠" { // 2.5 小时：紧急
+		t.Fatalf("2.5h should be urgent")
+	}
+	if f := at(60); f.Icon(cfg, true) != "🟡" { // 低于固定告警线
+		t.Fatalf("below threshold should be yellow")
+	}
+	// 按小时速度：2.5 小时用完 → 🚨 紧急（阈值 3 小时）
+	svc, _, _ := newService(t)
+	a, _ := svc.Evaluate(model.Site{ID: "s1", Name: "a_b<c>"}, Forecast{Balance: 50, HourRate: f64(20), HoursLeft: f64(2.5)})
+	if a == nil || !strings.Contains(a.HTML, "🚨") || !strings.Contains(a.HTML, "<b>$50.00</b>") || !strings.Contains(a.HTML, "a_b&lt;c&gt;") {
+		t.Fatalf("urgent alert html = %+v", a)
 	}
 }
